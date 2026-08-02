@@ -1,11 +1,10 @@
-// App.jsx — skeleton router shell (Architecture.md §5, PRD §6)
-// Routes are stubbed; no business logic here. All four role dashboards + Admin are wired below.
+// App.jsx — Router shell with AuthProvider, PrivateRoute, and Role-Gated Routes
 import React from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { ProfileProvider } from './context/ProfileContext';
 
-// Pages — stubs only
+// Pages
 import Landing from './pages/Landing';
 import Signup from './pages/Signup';
 import Login from './pages/Login';
@@ -19,8 +18,41 @@ import BrokerDashboard from './pages/BrokerDashboard';
 import CompanyDashboard from './pages/CompanyDashboard';
 import AdminReviewQueue from './pages/AdminReviewQueue';
 
-// TODO: Add a ProtectedRoute wrapper that checks AuthContext.role before rendering private routes
-// TODO: Redirect to role-specific dashboard based on users.role from JWT (Architecture.md §4.0)
+// Helper to get default dashboard path for a role
+export function getRoleDashboard(role) {
+  switch (role) {
+    case 'find_accommodation': return '/dashboard';
+    case 'property_owner':     return '/owner';
+    case 'broker':             return '/broker';
+    case 'company_hr':         return '/company';
+    case 'admin':              return '/admin/review';
+    default:                   return '/choose-your-journey';
+  }
+}
+
+// Protected Route wrapper
+function ProtectedRoute({ children, allowedRoles }) {
+  const { user, isAuthenticated } = useAuth();
+  const location = useLocation();
+
+  if (!isAuthenticated || !user) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  // If user hasn't set their role yet (except on choose-your-journey)
+  if (!user.role && location.pathname !== '/choose-your-journey') {
+    return <Navigate to="/choose-your-journey" replace />;
+  }
+
+  // Check role authorization if specified
+  if (allowedRoles && allowedRoles.length > 0) {
+    if (!allowedRoles.includes(user.role)) {
+      return <Navigate to={getRoleDashboard(user.role)} replace />;
+    }
+  }
+
+  return children;
+}
 
 function App() {
   return (
@@ -28,29 +60,97 @@ function App() {
       <AuthProvider>
         <ProfileProvider>
           <Routes>
-            {/* Public */}
+            {/* Public Routes */}
             <Route path="/" element={<Landing />} />
             <Route path="/signup" element={<Signup />} />
             <Route path="/login" element={<Login />} />
-            <Route path="/choose-your-journey" element={<ChooseYourJourney />} />
-            <Route path="/onboarding" element={<Onboarding />} />
 
-            {/* Find Accommodation */}
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/listings/:id" element={<ListingDetail />} />
-            <Route path="/saved" element={<SavedListings />} />
+            {/* Role Assignment Flow */}
+            <Route
+              path="/choose-your-journey"
+              element={
+                <ProtectedRoute>
+                  <ChooseYourJourney />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/onboarding"
+              element={
+                <ProtectedRoute>
+                  <Onboarding />
+                </ProtectedRoute>
+              }
+            />
 
-            {/* Property Owner */}
-            <Route path="/owner" element={<OwnerDashboard />} />
+            {/* Find Accommodation Role Routes */}
+            <Route
+              path="/dashboard"
+              element={
+                <ProtectedRoute allowedRoles={['find_accommodation']}>
+                  <Dashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/listings/:id"
+              element={
+                <ProtectedRoute allowedRoles={['find_accommodation', 'admin']}>
+                  <ListingDetail />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/saved"
+              element={
+                <ProtectedRoute allowedRoles={['find_accommodation']}>
+                  <SavedListings />
+                </ProtectedRoute>
+              }
+            />
 
-            {/* Broker/Agent */}
-            <Route path="/broker" element={<BrokerDashboard />} />
+            {/* Property Owner Routes */}
+            <Route
+              path="/owner"
+              element={
+                <ProtectedRoute allowedRoles={['property_owner']}>
+                  <OwnerDashboard />
+                </ProtectedRoute>
+              }
+            />
 
-            {/* Company/HR */}
-            <Route path="/company" element={<CompanyDashboard />} />
+            {/* Broker Routes */}
+            <Route
+              path="/broker"
+              element={
+                <ProtectedRoute allowedRoles={['broker']}>
+                  <BrokerDashboard />
+                </ProtectedRoute>
+              }
+            />
 
-            {/* Admin — no public signup path; account created via provisioning only (FR-2) */}
-            <Route path="/admin/review" element={<AdminReviewQueue />} />
+            {/* Company / HR Routes */}
+            <Route
+              path="/company"
+              element={
+                <ProtectedRoute allowedRoles={['company_hr']}>
+                  <CompanyDashboard />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Admin Review Queue — Provisioned admins only (FR-2) */}
+            <Route
+              path="/admin/review"
+              element={
+                <ProtectedRoute allowedRoles={['admin']}>
+                  <AdminReviewQueue />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Fallback */}
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </ProfileProvider>
       </AuthProvider>

@@ -4,7 +4,9 @@
 // Frontend-only stub — wire to POST /api/auth/register when backend is ready
 
 import { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { getRoleDashboard } from '../App';
 
 /* ─────────────────────────────────────────────────────────────
    EyeBall — white sclera + tracking pupil
@@ -110,10 +112,10 @@ function useCharPos(ref, mx, my) {
    Role options
 ───────────────────────────────────────────────────────────── */
 const ROLES = [
-  { value: 'buyer',  label: '🏠 Buyer / Renter',     desc: 'Find your perfect home' },
-  { value: 'owner',  label: '🏢 Property Owner',     desc: 'List & manage properties' },
-  { value: 'broker', label: '🤝 Certified Broker',   desc: 'Connect buyers & owners' },
-  { value: 'hr',     label: '👔 HR / Relocation',    desc: 'Manage employee moves' },
+  { value: 'find_accommodation', label: '🏠 Buyer / Renter',     desc: 'Find your perfect home' },
+  { value: 'property_owner',     label: '🏢 Property Owner',     desc: 'List & manage properties' },
+  { value: 'broker',             label: '🤝 Certified Broker',   desc: 'Connect buyers & owners' },
+  { value: 'company_hr',         label: '👔 HR / Relocation',    desc: 'Manage employee moves' },
 ];
 
 /* ─────────────────────────────────────────────────────────────
@@ -140,18 +142,19 @@ function getStrength(pw) {
    Main Signup Page
 ───────────────────────────────────────────────────────────── */
 export default function Signup() {
+  const navigate = useNavigate();
+  const { register, setRole, loading } = useAuth();
+
   /* form */
   const [name,      setName]      = useState('');
   const [email,     setEmail]     = useState('');
   const [password,  setPassword]  = useState('');
   const [confirm,   setConfirm]   = useState('');
-  const [role,      setRole]      = useState('buyer');
+  const [role,      setSelectedRole] = useState('find_accommodation');
   const [showPw,    setShowPw]    = useState(false);
   const [showCPw,   setShowCPw]   = useState(false);
   const [agree,     setAgree]     = useState(false);
   const [error,     setError]     = useState('');
-  const [loading,   setLoading]   = useState(false);
-  const [step,      setStep]      = useState(1); // 1=details, 2=role
 
   /* mouse */
   const [mx, setMx] = useState(0);
@@ -217,7 +220,7 @@ export default function Signup() {
   const yp = useCharPos(yellowRef, mx, my);
 
   /* submit */
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     if (!name.trim())              { setError('Please enter your full name.'); return; }
@@ -225,12 +228,21 @@ export default function Signup() {
     if (password.length < 8)       { setError('Password must be at least 8 characters.'); return; }
     if (password !== confirm)      { setError('Passwords do not match.'); return; }
     if (!agree)                    { setError('Please accept the Terms & Privacy Policy.'); return; }
-    setLoading(true);
-    /* TODO: wire to POST /api/auth/register → then navigate to /choose-your-journey */
-    setTimeout(() => {
-      setLoading(false);
-      setError('Backend not connected yet — this is a UI-only demo.');
-    }, 1400);
+
+    const regRes = await register(name, email, password, confirm);
+    if (!regRes.success) {
+      setError(regRes.error || 'Registration failed.');
+      return;
+    }
+
+    const roleRes = await setRole(role);
+    if (!roleRes.success) {
+      setError(roleRes.error || 'Role assignment failed.');
+      return;
+    }
+
+    const dest = getRoleDashboard(role);
+    navigate(dest, { replace: true });
   };
 
   /* ──────────── Eye/PW toggle SVGs ──────────── */
@@ -707,7 +719,7 @@ export default function Signup() {
                         key={r.value}
                         type="button"
                         className={`ms-su-role-card${role === r.value ? ' active' : ''}`}
-                        onClick={() => setRole(r.value)}
+                        onClick={() => setSelectedRole(r.value)}
                         disabled={loading}
                       >
                         {/* radio dot */}
