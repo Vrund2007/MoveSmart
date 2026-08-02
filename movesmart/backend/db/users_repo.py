@@ -1,42 +1,91 @@
 """db/users_repo.py — PyMongo access layer for users collection (database.md §3.1, Architecture.md §2)
 All user reads/writes go through this module — never direct collection access from app views.
-password_hash must never be returned by any function here (Rules.md §3).
+password_hash must never be returned by any function here except get_user_by_email (for login only).
 """
+from datetime import datetime, timezone
+from bson import ObjectId
 from .connection import get_db
 
 
+def _now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
 def create_user(email: str, password_hash: str) -> dict:
-    """Insert a new user document (email + password_hash only at creation).
-    Returns the created user dict (without password_hash).
-    TODO: insert into db['users']; set created_at, updated_at
+    """Insert a new user document. Role is unset at creation — set via PATCH /api/auth/role.
+    Returns the created user dict WITHOUT password_hash (Rules.md §3).
+    Raises pymongo.errors.DuplicateKeyError if email already exists.
     """
-    pass
+    db = get_db()
+    now = _now()
+    doc = {
+        'email': email.lower().strip(),
+        'password_hash': password_hash,
+        'role': None,          # set by PATCH /api/auth/role (FR-1)
+        'role_profile': {},
+        'created_at': now,
+        'updated_at': now,
+    }
+    result = db['users'].insert_one(doc)
+    doc['_id'] = result.inserted_id
+    # never return password_hash (Rules.md §3)
+    return _serialize_user(doc)
 
 
-def get_user_by_email(email: str) -> dict:
-    """Fetch user by email for login. Returns full document including password_hash (for verification only).
-    Callers must never return password_hash in an API response.
-    TODO: db['users'].find_one({'email': email})
+def get_user_by_email(email: str) -> dict | None:
+    """Fetch user by email — includes password_hash for login verification ONLY.
+    Callers must never include password_hash in any API response.
     """
-    pass
+    db = get_db()
+    return db['users'].find_one({'email': email.lower().strip()})
 
 
-def get_user_by_id(user_id: str) -> dict:
-    """Fetch user by _id. Returns user without password_hash.
-    TODO: db['users'].find_one({'_id': ObjectId(user_id)}, {'password_hash': 0})
+def get_user_by_id(user_id: str) -> dict | None:
+    """Fetch user by _id. Returns user WITHOUT password_hash (Rules.md §3)."""
+    db = get_db()
+    doc = db['users'].find_one(
+        {'_id': ObjectId(user_id)},
+        {'password_hash': 0}
+    )
+    if doc:
+        doc = _serialize_user(doc)
+    return doc
+
+
+def set_role(user_id: str, role: str) -> dict:
+    """Set users.role once. Raises ValueError if role is already set (FR-1).
+    'admin' must not be reachable via this function from the public API (FR-2) —
+    callers must validate role via RoleSerializer before calling this.
+    Returns updated user (without password_hash).
     """
-    pass
+    db = get_db()
+    existing = db['users'].find_one({'_id': ObjectId(user_id)}, {'role': 1})
+    if not existing:
+        raise ValueError(f"User {user_id} not found")
+    if existing.get('role') is not None:
+        raise ValueError("Role is already set and is immutable (FR-1)")
+
+    db['users'].update_one(
+        {'_id': ObjectId(user_id)},
+        {'$set': {'role': role, 'updated_at': _now()}}
+    )
+    return get_user_by_id(user_id)
 
 
-def set_role(user_id: str, role: str) -> None:
-    """Set users.role field once. 'admin' must not be reachable via this function from the public API (FR-2).
-    TODO: db['users'].update_one({'_id': ObjectId(user_id)}, {'$set': {'role': role, 'updated_at': ...}})
-    """
-    pass
+def update_role_profile(user_id: str, profile_data: dict) -> dict:
+    """Update role_profile subdocument for a user. Returns updated user (without password_hash)."""
+    db = get_db()
+    db['users'].update_one(
+        {'_id': ObjectId(user_id)},
+        {'$set': {'role_profile': profile_data, 'updated_at': _now()}}
+    )
+    return get_user_by_id(user_id)
 
 
-def update_role_profile(user_id: str, profile_data: dict) -> None:
-    """Update role_profile subdocument for a user.
-    TODO: db['users'].update_one({'_id': ...}, {'$set': {'role_profile': profile_data, 'updated_at': ...}})
-    """
-    pass
+def _serialize_user(doc: dict) -> dict:
+    """Convert ObjectId → str and strip password_hash for safe serialization."""
+    doc = dict(doc)
+    doc.pop('password_hash', None)
+    if '_id' in doc:
+        doc['_id'] = str(doc['_id'])
+    return doc

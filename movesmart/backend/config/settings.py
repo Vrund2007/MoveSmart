@@ -21,6 +21,7 @@ ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(','
 # Django's built-in admin site is NOT used — see Architecture.md §2.
 # apps/admin_review/ is the custom Admin approval workflow, not Django admin.
 INSTALLED_APPS = [
+    'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.staticfiles',
     'rest_framework',
@@ -75,7 +76,8 @@ STATIC_URL = '/static/'
 # ─── DRF ──────────────────────────────────────────────────────────────────────
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        # Custom backend — loads user from MongoDB instead of Django ORM (Architecture.md §2)
+        'apps.accounts.authentication.MongoJWTAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
@@ -94,6 +96,7 @@ SIMPLE_JWT = {
 CORS_ALLOWED_ORIGINS = os.environ.get(
     'CORS_ALLOWED_ORIGINS', 'http://localhost:3000'
 ).split(',')
+CORS_ALLOW_CREDENTIALS = True   # required for Authorization header from Vite dev server
 
 # ─── External APIs ────────────────────────────────────────────────────────────
 # Gemini and Maps API keys — server-side only, never exposed to frontend (Rules.md §5)
