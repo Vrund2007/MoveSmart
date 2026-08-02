@@ -3,7 +3,9 @@
 // Frontend-only stub — wire to POST /api/auth/login when backend is ready
 
 import { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { getRoleDashboard } from '../App';
 
 /* ─────────────────────────────────────────────────────────────
    EyeBall — white sclera + dark pupil that tracks the mouse
@@ -109,13 +111,15 @@ function useCharPos(ref, mx, my) {
    Main Login Page
 ───────────────────────────────────────────────────────────── */
 export default function Login() {
+  const navigate = useNavigate();
+  const { login, loading } = useAuth();
+
   /* form */
   const [email,    setEmail]    = useState('');
   const [password, setPassword] = useState('');
   const [showPw,   setShowPw]   = useState(false);
   const [remember, setRemember] = useState(false);
   const [error,    setError]    = useState('');
-  const [loading,  setLoading]  = useState(false);
 
   /* mouse */
   const [mx, setMx] = useState(0);
@@ -179,16 +183,19 @@ export default function Login() {
   const op = useCharPos(orangeRef, mx, my);
   const yp = useCharPos(yellowRef, mx, my);
 
-  /* submit stub */
-  const handleSubmit = (e) => {
+  /* submit */
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     if (!email || !password) { setError('Please fill in all fields.'); return; }
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      setError('Backend not connected yet — this is a UI-only demo.');
-    }, 1200);
+
+    const res = await login(email, password);
+    if (res.success) {
+      const dest = getRoleDashboard(res.user.role);
+      navigate(dest, { replace: true });
+    } else {
+      setError(res.error || 'Invalid credentials.');
+    }
   };
 
   /* auto-fill demo */

@@ -72,7 +72,7 @@ export default function FinalCTA() {
   return (
     <section
       ref={sectionRef}
-      className="bg-aurora-mesh text-white py-28 px-6 md:px-16 relative overflow-hidden flex flex-col items-center justify-center text-center"
+      className="bg-aurora-mesh/85 backdrop-blur-md text-white py-28 px-6 md:px-16 relative overflow-hidden flex flex-col items-center justify-center text-center border-t border-white/10"
     >
       <div className="max-w-4xl mx-auto relative z-10">
         <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 mb-6 shadow-sm">
