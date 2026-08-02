@@ -1,0 +1,80 @@
+# ─── Python ───────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+*.so
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+.venv/
+
+# Django
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+
+# Distribution / packaging
+.eggs/
+*.egg-info/
+dist/
+build/
+*.egg
+MANIFEST
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+
+# ─── ML Artifacts ─────────────────────────────────────────────────────────────
+# Trained model binaries are excluded from git to avoid large binary blobs.
+# Re-generate locally by running ml/rent_prediction/train.py and ml/suspicious_listing/train.py.
+# See Memory.md "Decisions made during setup" for the rationale.
+backend/ml/rent_prediction/artifacts/*.pkl
+backend/ml/rent_prediction/artifacts/*.json
+backend/ml/suspicious_listing/artifacts/*.pkl
+backend/ml/suspicious_listing/artifacts/*.json
+
+# ─── Environment / Secrets ────────────────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+
+# ─── Node / Frontend ──────────────────────────────────────────────────────────
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+frontend/build/
+frontend/dist/
+frontend/.parcel-cache/
+.cache/
+
+# ─── OS / Editor ──────────────────────────────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+*~

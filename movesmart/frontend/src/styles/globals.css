@@ -1,0 +1,177 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* CSS custom properties for Design.md §2 color tokens.
+   Keep --color-secondary and --color-text-secondary as separate variables
+   even though they share the same hex value today (Design.md §2 note). */
+:root {
+  --color-primary:        #00ADB5;
+  --color-secondary:      #393E46;
+  --color-background:     #EEEEEE;
+  --color-surface:        #FFFFFF;
+  --color-text-primary:   #222831;
+  --color-text-secondary: #393E46;
+  --color-border:         #D9D9D9;
+  --color-success:        #22C55E;
+  --color-warning:        #F59E0B;
+  --color-error:          #EF4444;
+  font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+body {
+  font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* Firefox custom scrollbar */
+  scrollbar-color: #00ADB5 #222831;
+  scrollbar-width: thin;
+}
+
+/* ── Custom scrollbar — WebKit (Chrome, Edge, Safari) ── */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #222831;
+  border-radius: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #00ADB5 0%, #008C93 100%);
+  border-radius: 8px;
+  border: 2px solid #222831;   /* creates inset padding effect */
+  transition: background 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #00D2DC 0%, #00ADB5 100%);
+  box-shadow: 0 0 8px rgba(0, 173, 181, 0.5);
+}
+
+::-webkit-scrollbar-corner {
+  background: #222831;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Plus Jakarta Sans', 'Outfit', sans-serif;
+  letter-spacing: -0.025em;
+}
+
+/* Tabular figures globally for numeric data — Design.md §3.4 */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Animations for hero UI entrance */
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-fade-up {
+  animation: fadeUp 400ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-fade-in {
+  animation: fadeIn 400ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* GSAP ScrollSmoother Layout Containers */
+#smooth-wrapper {
+  overflow: hidden;
+  position: fixed;
+  height: 100%;
+  width: 100%;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+#smooth-content {
+  overflow: visible;
+  width: 100%;
+  min-height: 100vh;
+}
+
+/* Custom Cursor glow utility */
+.custom-cursor-active {
+  pointer-events: none;
+}
+
+
+/* SplitText line-mask utility */
+.split-line-wrap {
+  overflow: hidden;
+  display: inline-block;
+  vertical-align: top;
+}
+
+.split-line-child {
+  display: inline-block;
+  will-change: transform, opacity;
+}
+
+/* Aurora Mesh Gradient Animation */
+@keyframes auroraDrift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.bg-aurora-mesh {
+  background: radial-gradient(circle at 20% 20%, rgba(0, 173, 181, 0.22) 0%, transparent 50%),
+              radial-gradient(circle at 80% 80%, rgba(0, 173, 181, 0.15) 0%, transparent 45%),
+              radial-gradient(circle at 50% 50%, rgba(34, 40, 49, 0.95) 0%, #222831 100%);
+  background-size: 200% 200%;
+  animation: auroraDrift 16s ease infinite;
+}
+
+/* Magnetic Hover Glow Button */
+.magnetic-btn-glow {
+  position: relative;
+  isolation: isolate;
+  transition: shadow 0.3s ease;
+}
+
+.magnetic-btn-glow::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  background: linear-gradient(135deg, #00ADB5, #00D2DC, #00ADB5);
+  opacity: 0;
+  z-index: -1;
+  filter: blur(12px);
+  transition: opacity 0.3s ease;
+}
+
+.magnetic-btn-glow:hover::after {
+  opacity: 0.75;
+}
+
+
