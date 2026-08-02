@@ -1,7 +1,7 @@
 """apps/cost_of_living/estimator.py — Rule-based cost-of-living estimation per locality (Architecture.md §7, PRD §7.1)
 All outputs are directional estimates, not measured data — must be labeled as such everywhere they appear (Rules.md §3).
 """
-from typing import dict
+from typing import Dict
 
 
 def estimate_cost_of_living(locality: str, rent_budget: float) -> dict:

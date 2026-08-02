@@ -15,16 +15,28 @@ PUBLIC_ROLE_CHOICES = [
 
 
 class RegisterSerializer(serializers.Serializer):
-    """Validates email + password for POST /api/auth/register."""
+    """Validates email + password + confirm_password for POST /api/auth/register."""
+    name = serializers.CharField(max_length=150, required=False, allow_blank=True)
     email = serializers.EmailField()
     password = serializers.CharField(min_length=8, write_only=True)
-    # TODO: add confirm_password field and cross-field validation
+    confirm_password = serializers.CharField(min_length=8, write_only=True)
+
+    def validate_email(self, value):
+        return value.lower().strip()
+
+    def validate(self, data):
+        if data['password'] != data['confirm_password']:
+            raise serializers.ValidationError({"confirm_password": "Passwords do not match."})
+        return data
 
 
 class LoginSerializer(serializers.Serializer):
     """Validates credentials for POST /api/auth/login."""
     email = serializers.EmailField()
     password = serializers.CharField(write_only=True)
+
+    def validate_email(self, value):
+        return value.lower().strip()
 
 
 class RoleSerializer(serializers.Serializer):
@@ -34,25 +46,47 @@ class RoleSerializer(serializers.Serializer):
     role = serializers.ChoiceField(choices=PUBLIC_ROLE_CHOICES)
 
 
+# ── Role-specific profile serializers (database.md §3.1) ──────────────────────
+
+class _CoordinatesSerializer(serializers.Serializer):
+    name = serializers.CharField()
+    coordinates = serializers.ListField(
+        child=serializers.FloatField(), min_length=2, max_length=2
+    )  # [lng, lat]
+
+
 class FindAccommodationProfileSerializer(serializers.Serializer):
-    """Validates role_profile fields for Find Accommodation users (database.md §3.1)."""
-    # TODO: salary, work_or_college_location {name, coordinates}, rent_budget, lifestyle_pref, commute_tolerance_minutes
-    pass
+    """role_profile fields for find_accommodation users (database.md §3.1)."""
+    salary = serializers.FloatField(required=False, allow_null=True)
+    work_or_college_location = _CoordinatesSerializer(required=False, allow_null=True)
+    rent_budget = serializers.FloatField(required=False, allow_null=True)
+    lifestyle_pref = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    commute_tolerance_minutes = serializers.IntegerField(required=False, allow_null=True)
 
 
 class PropertyOwnerProfileSerializer(serializers.Serializer):
-    """Validates role_profile fields for Property Owner users (database.md §3.1)."""
-    # TODO: contact_phone, business_name (optional)
-    pass
+    """role_profile fields for property_owner users (database.md §3.1)."""
+    contact_phone = serializers.CharField(max_length=20)
+    business_name = serializers.CharField(max_length=200, required=False, allow_blank=True)
 
 
 class BrokerProfileSerializer(serializers.Serializer):
-    """Validates role_profile fields for Broker users (database.md §3.1)."""
-    # TODO: contact_phone, agency_name (optional)
-    pass
+    """role_profile fields for broker users (database.md §3.1)."""
+    contact_phone = serializers.CharField(max_length=20)
+    agency_name = serializers.CharField(max_length=200, required=False, allow_blank=True)
 
 
 class CompanyHRProfileSerializer(serializers.Serializer):
-    """Validates role_profile fields for Company/HR users (database.md §3.1)."""
-    # TODO: company_name, office_locations[] {name, coordinates}
-    pass
+    """role_profile fields for company_hr users (database.md §3.1)."""
+    company_name = serializers.CharField(max_length=200)
+    office_locations = serializers.ListField(
+        child=_CoordinatesSerializer(), required=False, default=list
+    )
+
+
+PROFILE_SERIALIZER_MAP = {
+    'find_accommodation': FindAccommodationProfileSerializer,
+    'property_owner':     PropertyOwnerProfileSerializer,
+    'broker':             BrokerProfileSerializer,
+    'company_hr':         CompanyHRProfileSerializer,
+}
