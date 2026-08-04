@@ -4,7 +4,7 @@
 
 import { useState, useEffect, useRef, useContext } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { AuthContext } from '../context/AuthContext';
+import { AuthContext, useAuth } from '../context/AuthContext';
 
 /* ─────────────────────────────────────────────────────────────
    EyeBall — white sclera + dark pupil that tracks the mouse
@@ -26,9 +26,9 @@ function EyeBall({
       if (!ref.current) return;
       const r = ref.current.getBoundingClientRect();
       const dx = e.clientX - (r.left + r.width / 2);
-      const dy = e.clientY - (r.top  + r.height / 2);
-      const d  = Math.sqrt(dx * dx + dy * dy) || 1;
-      const s  = Math.min(d, maxDistance) / d;
+      const dy = e.clientY - (r.top + r.height / 2);
+      const d = Math.sqrt(dx * dx + dy * dy) || 1;
+      const s = Math.min(d, maxDistance) / d;
       setPos({ x: dx * s, y: dy * s });
     };
     window.addEventListener('mousemove', onMove);
@@ -72,9 +72,9 @@ function Pupil({ size = 12, maxDistance = 5, pupilColor = '#1a1a2e', forceLookX,
       if (!ref.current) return;
       const r = ref.current.getBoundingClientRect();
       const dx = e.clientX - (r.left + r.width / 2);
-      const dy = e.clientY - (r.top  + r.height / 2);
-      const d  = Math.sqrt(dx * dx + dy * dy) || 1;
-      const s  = Math.min(d, maxDistance) / d;
+      const dy = e.clientY - (r.top + r.height / 2);
+      const d = Math.sqrt(dx * dx + dy * dy) || 1;
+      const s = Math.min(d, maxDistance) / d;
       setPos({ x: dx * s, y: dy * s });
     };
     window.addEventListener('mousemove', onMove);
@@ -98,11 +98,11 @@ function useCharPos(ref, mx, my) {
   if (!ref?.current) return { faceX: 0, faceY: 0, bodySkew: 0 };
   const r = ref.current.getBoundingClientRect();
   const dx = mx - (r.left + r.width / 2);
-  const dy = my - (r.top  + r.height / 3);
+  const dy = my - (r.top + r.height / 3);
   return {
-    faceX:    Math.max(-15, Math.min(15,  dx / 20)),
-    faceY:    Math.max(-10, Math.min(10,  dy / 30)),
-    bodySkew: Math.max(-6,  Math.min(6,  -dx / 120)),
+    faceX: Math.max(-15, Math.min(15, dx / 20)),
+    faceY: Math.max(-10, Math.min(10, dy / 30)),
+    bodySkew: Math.max(-6, Math.min(6, -dx / 120)),
   };
 }
 
@@ -114,26 +114,26 @@ export default function Login() {
   const { login, loading } = useAuth();
 
   /* form */
-  const [email,    setEmail]    = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [showPw,   setShowPw]   = useState(false);
+  const [showPw, setShowPw] = useState(false);
   const [remember, setRemember] = useState(false);
-  const [error,    setError]    = useState('');
+  const [error, setError] = useState('');
 
   /* mouse */
   const [mx, setMx] = useState(0);
   const [my, setMy] = useState(0);
 
   /* character animation flags */
-  const [purpleBlink,       setPurpleBlink]       = useState(false);
-  const [blackBlink,        setBlackBlink]         = useState(false);
-  const [isTyping,          setIsTyping]           = useState(false);
+  const [purpleBlink, setPurpleBlink] = useState(false);
+  const [blackBlink, setBlackBlink] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
   const [lookingAtEachOther, setLookingAtEachOther] = useState(false);
-  const [peekActive,         setPeekActive]         = useState(false);
+  const [peekActive, setPeekActive] = useState(false);
 
   /* character refs */
   const purpleRef = useRef(null);
-  const blackRef  = useRef(null);
+  const blackRef = useRef(null);
   const orangeRef = useRef(null);
   const yellowRef = useRef(null);
 
@@ -147,12 +147,12 @@ export default function Login() {
   /* random blinks */
   useEffect(() => {
     let t;
-    const go = () => { t = setTimeout(() => { setPurpleBlink(true); setTimeout(() => { setPurpleBlink(false); go(); }, 150); }, Math.random()*4000+3000); };
+    const go = () => { t = setTimeout(() => { setPurpleBlink(true); setTimeout(() => { setPurpleBlink(false); go(); }, 150); }, Math.random() * 4000 + 3000); };
     go(); return () => clearTimeout(t);
   }, []);
   useEffect(() => {
     let t;
-    const go = () => { t = setTimeout(() => { setBlackBlink(true); setTimeout(() => { setBlackBlink(false); go(); }, 150); }, Math.random()*4000+3000); };
+    const go = () => { t = setTimeout(() => { setBlackBlink(true); setTimeout(() => { setBlackBlink(false); go(); }, 150); }, Math.random() * 4000 + 3000); };
     go(); return () => clearTimeout(t);
   }, []);
 
@@ -168,32 +168,30 @@ export default function Login() {
   useEffect(() => {
     if (!showPw || !password) { setPeekActive(false); return; }
     let t;
-    const go = () => { t = setTimeout(() => { setPeekActive(true); setTimeout(() => { setPeekActive(false); go(); }, 800); }, Math.random()*3000+2000); };
+    const go = () => { t = setTimeout(() => { setPeekActive(true); setTimeout(() => { setPeekActive(false); go(); }, 800); }, Math.random() * 3000 + 2000); };
     go(); return () => clearTimeout(t);
   }, [showPw, password]);
 
   /* derived */
-  const passwordHidden  = password.length > 0 && !showPw;
+  const passwordHidden = password.length > 0 && !showPw;
   const passwordPeeking = password.length > 0 && showPw;
 
   /* character positions */
   const pp = useCharPos(purpleRef, mx, my);
-  const bp = useCharPos(blackRef,  mx, my);
+  const bp = useCharPos(blackRef, mx, my);
   const op = useCharPos(orangeRef, mx, my);
   const yp = useCharPos(yellowRef, mx, my);
 
-  const { login } = useContext(AuthContext);
-  const navigate = useNavigate();
 
   /* submit stub */
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     if (!email || !password) { setError('Please fill in all fields.'); return; }
-    setLoading(true);
-    try {
-      const loggedUser = await login(email, password);
-      setLoading(false);
+    
+    const res = await login(email, password);
+    if (res.success) {
+      const loggedUser = res.user;
       
       // Route to correct dashboard role
       if (loggedUser.role === 'admin') {
@@ -213,9 +211,8 @@ export default function Login() {
           navigate('/choose-your-journey');
         }
       }
-    } catch (err) {
-      setLoading(false);
-      setError('Invalid email or password.');
+    } else {
+      setError(res.error || 'Invalid email or password.');
     }
   };
 
@@ -392,80 +389,80 @@ export default function Login() {
         ══════════════════════════════════════════ */}
         <div className="ms-login-left">
           {/* ambient glow blobs */}
-          <div style={{ position:'absolute', top:'15%', right:'20%', width:240, height:240, borderRadius:'50%', background:'rgba(0,173,181,0.18)', filter:'blur(70px)', pointerEvents:'none' }} />
-          <div style={{ position:'absolute', bottom:'20%', left:'10%', width:300, height:300, borderRadius:'50%', background:'rgba(255,255,255,0.05)', filter:'blur(80px)', pointerEvents:'none' }} />
+          <div style={{ position: 'absolute', top: '15%', right: '20%', width: 240, height: 240, borderRadius: '50%', background: 'rgba(0,173,181,0.18)', filter: 'blur(70px)', pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', bottom: '20%', left: '10%', width: 300, height: 300, borderRadius: '50%', background: 'rgba(255,255,255,0.05)', filter: 'blur(80px)', pointerEvents: 'none' }} />
 
           {/* ── Logo — identical to HeroNavbar ── */}
           <Link
             to="/"
-            style={{ position:'relative', zIndex:20, display:'flex', alignItems:'center', gap:14, animation:'ms-fadeUp 0.6s ease both', textDecoration:'none', color:'inherit', transition:'opacity 0.2s' }}
-            onMouseEnter={e => e.currentTarget.style.opacity='0.85'}
-            onMouseLeave={e => e.currentTarget.style.opacity='1'}
+            style={{ position: 'relative', zIndex: 20, display: 'flex', alignItems: 'center', gap: 14, animation: 'ms-fadeUp 0.6s ease both', textDecoration: 'none', color: 'inherit', transition: 'opacity 0.2s' }}
+            onMouseEnter={e => e.currentTarget.style.opacity = '0.85'}
+            onMouseLeave={e => e.currentTarget.style.opacity = '1'}
             aria-label="Go to MoveSmart homepage"
           >
             <div className="ms-logo-ring">
               <img src="/smart-Building.png" alt="MoveSmart" />
             </div>
             <div>
-              <div style={{ fontSize:22, fontWeight:800, letterSpacing:'-0.03em', lineHeight:1.1 }}>
-                Move<span style={{ color:'#00ADB5' }}>Smart</span>
+              <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.1 }}>
+                Move<span style={{ color: '#00ADB5' }}>Smart</span>
               </div>
-              <div style={{ fontSize:11, opacity:0.55, fontWeight:600, marginTop:2 }}>AI City Relocation Marketplace</div>
+              <div style={{ fontSize: 11, opacity: 0.55, fontWeight: 600, marginTop: 2 }}>AI City Relocation Marketplace</div>
             </div>
           </Link>
 
           {/* ── Characters stage ── */}
-          <div style={{ position:'relative', zIndex:20, display:'flex', alignItems:'flex-end', justifyContent:'center', height:460 }}>
-            <div style={{ position:'relative', width:520, height:390 }}>
+          <div style={{ position: 'relative', zIndex: 20, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', height: 460 }}>
+            <div style={{ position: 'relative', width: 520, height: 390 }}>
 
               {/* Purple — tallest back layer */}
               <div ref={purpleRef} style={{
-                position:'absolute', bottom:0, left:60,
-                width:180, height: (isTyping||passwordHidden) ? 440 : 400,
-                backgroundColor:'#6C3FF5', borderRadius:'10px 10px 0 0',
-                zIndex:1, transition:'all 0.7s ease',
+                position: 'absolute', bottom: 0, left: 60,
+                width: 180, height: (isTyping || passwordHidden) ? 440 : 400,
+                backgroundColor: '#6C3FF5', borderRadius: '10px 10px 0 0',
+                zIndex: 1, transition: 'all 0.7s ease',
                 transform: passwordPeeking
                   ? 'skewX(0deg)'
-                  : (isTyping||passwordHidden)
-                    ? `skewX(${(pp.bodySkew||0)-12}deg) translateX(40px)`
-                    : `skewX(${pp.bodySkew||0}deg)`,
-                transformOrigin:'bottom center',
+                  : (isTyping || passwordHidden)
+                    ? `skewX(${(pp.bodySkew || 0) - 12}deg) translateX(40px)`
+                    : `skewX(${pp.bodySkew || 0}deg)`,
+                transformOrigin: 'bottom center',
               }}>
                 <div style={{
-                  position:'absolute', display:'flex', gap:30, transition:'all 0.7s ease',
-                  left: passwordPeeking ? 20 : lookingAtEachOther ? 55 : 45+(pp.faceX||0),
-                  top:  passwordPeeking ? 35 : lookingAtEachOther ? 65 : 40+(pp.faceY||0),
+                  position: 'absolute', display: 'flex', gap: 30, transition: 'all 0.7s ease',
+                  left: passwordPeeking ? 20 : lookingAtEachOther ? 55 : 45 + (pp.faceX || 0),
+                  top: passwordPeeking ? 35 : lookingAtEachOther ? 65 : 40 + (pp.faceY || 0),
                 }}>
                   <EyeBall size={18} pupilSize={7} maxDistance={5} eyeColor="white" pupilColor="#1a1a2e"
                     isBlinking={purpleBlink}
-                    forceLookX={passwordPeeking ? (peekActive?4:-4) : lookingAtEachOther ? 3 : undefined}
-                    forceLookY={passwordPeeking ? (peekActive?5:-4) : lookingAtEachOther ? 4 : undefined} />
+                    forceLookX={passwordPeeking ? (peekActive ? 4 : -4) : lookingAtEachOther ? 3 : undefined}
+                    forceLookY={passwordPeeking ? (peekActive ? 5 : -4) : lookingAtEachOther ? 4 : undefined} />
                   <EyeBall size={18} pupilSize={7} maxDistance={5} eyeColor="white" pupilColor="#1a1a2e"
                     isBlinking={purpleBlink}
-                    forceLookX={passwordPeeking ? (peekActive?4:-4) : lookingAtEachOther ? 3 : undefined}
-                    forceLookY={passwordPeeking ? (peekActive?5:-4) : lookingAtEachOther ? 4 : undefined} />
+                    forceLookX={passwordPeeking ? (peekActive ? 4 : -4) : lookingAtEachOther ? 3 : undefined}
+                    forceLookY={passwordPeeking ? (peekActive ? 5 : -4) : lookingAtEachOther ? 4 : undefined} />
                 </div>
               </div>
 
               {/* Black — middle */}
               <div ref={blackRef} style={{
-                position:'absolute', bottom:0, left:230,
-                width:120, height:310,
-                backgroundColor:'#1a1a2e', borderRadius:'8px 8px 0 0',
-                zIndex:2, transition:'all 0.7s ease',
+                position: 'absolute', bottom: 0, left: 230,
+                width: 120, height: 310,
+                backgroundColor: '#1a1a2e', borderRadius: '8px 8px 0 0',
+                zIndex: 2, transition: 'all 0.7s ease',
                 transform: passwordPeeking
                   ? 'skewX(0deg)'
                   : lookingAtEachOther
-                    ? `skewX(${(bp.bodySkew||0)*1.5+10}deg) translateX(20px)`
-                    : (isTyping||passwordHidden)
-                      ? `skewX(${(bp.bodySkew||0)*1.5}deg)`
-                      : `skewX(${bp.bodySkew||0}deg)`,
-                transformOrigin:'bottom center',
+                    ? `skewX(${(bp.bodySkew || 0) * 1.5 + 10}deg) translateX(20px)`
+                    : (isTyping || passwordHidden)
+                      ? `skewX(${(bp.bodySkew || 0) * 1.5}deg)`
+                      : `skewX(${bp.bodySkew || 0}deg)`,
+                transformOrigin: 'bottom center',
               }}>
                 <div style={{
-                  position:'absolute', display:'flex', gap:24, transition:'all 0.7s ease',
-                  left: passwordPeeking ? 10 : lookingAtEachOther ? 32 : 26+(bp.faceX||0),
-                  top:  passwordPeeking ? 28 : lookingAtEachOther ? 12 : 32+(bp.faceY||0),
+                  position: 'absolute', display: 'flex', gap: 24, transition: 'all 0.7s ease',
+                  left: passwordPeeking ? 10 : lookingAtEachOther ? 32 : 26 + (bp.faceX || 0),
+                  top: passwordPeeking ? 28 : lookingAtEachOther ? 12 : 32 + (bp.faceY || 0),
                 }}>
                   <EyeBall size={16} pupilSize={6} maxDistance={4} eyeColor="white" pupilColor="#1a1a2e"
                     isBlinking={blackBlink}
@@ -480,17 +477,17 @@ export default function Login() {
 
               {/* Orange — front-left semicircle */}
               <div ref={orangeRef} style={{
-                position:'absolute', bottom:0, left:0,
-                width:240, height:200,
-                backgroundColor:'#FF9B6B', borderRadius:'120px 120px 0 0',
-                zIndex:3, transition:'all 0.7s ease',
-                transform: passwordPeeking ? 'skewX(0deg)' : `skewX(${op.bodySkew||0}deg)`,
-                transformOrigin:'bottom center',
+                position: 'absolute', bottom: 0, left: 0,
+                width: 240, height: 200,
+                backgroundColor: '#FF9B6B', borderRadius: '120px 120px 0 0',
+                zIndex: 3, transition: 'all 0.7s ease',
+                transform: passwordPeeking ? 'skewX(0deg)' : `skewX(${op.bodySkew || 0}deg)`,
+                transformOrigin: 'bottom center',
               }}>
                 <div style={{
-                  position:'absolute', display:'flex', gap:32, transition:'all 0.2s ease',
-                  left: passwordPeeking ? 50 : 82+(op.faceX||0),
-                  top:  passwordPeeking ? 85 : 90+(op.faceY||0),
+                  position: 'absolute', display: 'flex', gap: 32, transition: 'all 0.2s ease',
+                  left: passwordPeeking ? 50 : 82 + (op.faceX || 0),
+                  top: passwordPeeking ? 85 : 90 + (op.faceY || 0),
                 }}>
                   <Pupil size={12} maxDistance={5} pupilColor="#1a1a2e"
                     forceLookX={passwordPeeking ? -5 : undefined}
@@ -503,17 +500,17 @@ export default function Login() {
 
               {/* Yellow — front-right capsule */}
               <div ref={yellowRef} style={{
-                position:'absolute', bottom:0, left:300,
-                width:140, height:230,
-                backgroundColor:'#E8D754', borderRadius:'70px 70px 0 0',
-                zIndex:4, transition:'all 0.7s ease',
-                transform: passwordPeeking ? 'skewX(0deg)' : `skewX(${yp.bodySkew||0}deg)`,
-                transformOrigin:'bottom center',
+                position: 'absolute', bottom: 0, left: 300,
+                width: 140, height: 230,
+                backgroundColor: '#E8D754', borderRadius: '70px 70px 0 0',
+                zIndex: 4, transition: 'all 0.7s ease',
+                transform: passwordPeeking ? 'skewX(0deg)' : `skewX(${yp.bodySkew || 0}deg)`,
+                transformOrigin: 'bottom center',
               }}>
                 <div style={{
-                  position:'absolute', display:'flex', gap:24, transition:'all 0.2s ease',
-                  left: passwordPeeking ? 20 : 52+(yp.faceX||0),
-                  top:  passwordPeeking ? 35 : 40+(yp.faceY||0),
+                  position: 'absolute', display: 'flex', gap: 24, transition: 'all 0.2s ease',
+                  left: passwordPeeking ? 20 : 52 + (yp.faceX || 0),
+                  top: passwordPeeking ? 35 : 40 + (yp.faceY || 0),
                 }}>
                   <Pupil size={12} maxDistance={5} pupilColor="#1a1a2e"
                     forceLookX={passwordPeeking ? -5 : undefined}
@@ -524,10 +521,10 @@ export default function Login() {
                 </div>
                 {/* mouth */}
                 <div style={{
-                  position:'absolute', borderRadius:2, width:52, height:4,
-                  backgroundColor:'#1a1a2e', transition:'all 0.2s ease',
-                  left: passwordPeeking ? 44 : 44+(yp.faceX||0),
-                  top:  passwordPeeking ? 88 : 88+(yp.faceY||0),
+                  position: 'absolute', borderRadius: 2, width: 52, height: 4,
+                  backgroundColor: '#1a1a2e', transition: 'all 0.2s ease',
+                  left: passwordPeeking ? 44 : 44 + (yp.faceX || 0),
+                  top: passwordPeeking ? 88 : 88 + (yp.faceY || 0),
                 }} />
               </div>
 
@@ -535,14 +532,14 @@ export default function Login() {
           </div>
 
           {/* ── Floating info card ── */}
-          <div style={{ position:'relative', zIndex:20 }}>
-            <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:16 }}>
+          <div style={{ position: 'relative', zIndex: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
               <span className="ms-badge">
                 <span className="ms-badge-dot" />
                 Your move, AI-powered
               </span>
             </div>
-            <p style={{ fontSize:14, opacity:0.65, lineHeight:1.7, maxWidth:340, fontWeight:500 }}>
+            <p style={{ fontSize: 14, opacity: 0.65, lineHeight: 1.7, maxWidth: 340, fontWeight: 500 }}>
               Find your perfect city, connect with verified brokers, and relocate with total confidence.
             </p>
           </div>
@@ -552,49 +549,49 @@ export default function Login() {
             RIGHT — Login Form
         ══════════════════════════════════════════ */}
         <div style={{
-          display:'flex', alignItems:'center', justifyContent:'center',
-          padding:'2rem', background:'#EEEEEE', minHeight:'100vh', position:'relative',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: '2rem', background: '#EEEEEE', minHeight: '100vh', position: 'relative',
         }}>
-          <div style={{ width:'100%', maxWidth:428, animation:'ms-fadeUp 0.7s ease both' }}>
+          <div style={{ width: '100%', maxWidth: 428, animation: 'ms-fadeUp 0.7s ease both' }}>
 
             {/* Mobile logo — shown only on small screens */}
             <Link
               to="/"
               className="ms-mobile-logo"
-              style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:12, marginBottom:32, textDecoration:'none', color:'inherit', transition:'opacity 0.2s' }}
-              onMouseEnter={e => e.currentTarget.style.opacity='0.75'}
-              onMouseLeave={e => e.currentTarget.style.opacity='1'}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, marginBottom: 32, textDecoration: 'none', color: 'inherit', transition: 'opacity 0.2s' }}
+              onMouseEnter={e => e.currentTarget.style.opacity = '0.75'}
+              onMouseLeave={e => e.currentTarget.style.opacity = '1'}
               aria-label="Go to MoveSmart homepage"
             >
               <div className="ms-logo-ring">
                 <img src="/smart-Building.png" alt="MoveSmart" />
               </div>
-              <span style={{ fontSize:22, fontWeight:800, letterSpacing:'-0.03em', color:'#222831' }}>
-                Move<span style={{ color:'#00ADB5' }}>Smart</span>
+              <span style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.03em', color: '#222831' }}>
+                Move<span style={{ color: '#00ADB5' }}>Smart</span>
               </span>
             </Link>
 
             {/* Header */}
-            <div style={{ textAlign:'center', marginBottom:28 }}>
+            <div style={{ textAlign: 'center', marginBottom: 28 }}>
               <h1 style={{
-                fontSize:30, fontWeight:800, color:'#222831',
-                letterSpacing:'-0.03em', marginBottom:6, lineHeight:1.15,
-                fontFamily:"'Plus Jakarta Sans', sans-serif",
+                fontSize: 30, fontWeight: 800, color: '#222831',
+                letterSpacing: '-0.03em', marginBottom: 6, lineHeight: 1.15,
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
               }}>
                 Welcome back 👋
               </h1>
-              <p style={{ fontSize:14, color:'#393E46', fontWeight:500 }}>
+              <p style={{ fontSize: 14, color: '#393E46', fontWeight: 500 }}>
                 Sign in to your MoveSmart account
               </p>
             </div>
 
             {/* Form card — homepage floating card style */}
             <div className="ms-card">
-              <form onSubmit={handleSubmit} style={{ display:'flex', flexDirection:'column', gap:18 }}>
+              <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
 
                 {/* Email */}
                 <div>
-                  <label htmlFor="email" style={{ display:'block', fontSize:13, fontWeight:700, color:'#222831', marginBottom:7, fontFamily:"'Plus Jakarta Sans', sans-serif" }}>
+                  <label htmlFor="email" style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#222831', marginBottom: 7, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
                     Email address
                   </label>
                   <input
@@ -609,29 +606,29 @@ export default function Login() {
 
                 {/* Password */}
                 <div>
-                  <label htmlFor="password" style={{ display:'block', fontSize:13, fontWeight:700, color:'#222831', marginBottom:7, fontFamily:"'Plus Jakarta Sans', sans-serif" }}>
+                  <label htmlFor="password" style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#222831', marginBottom: 7, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
                     Password
                   </label>
-                  <div style={{ position:'relative' }}>
+                  <div style={{ position: 'relative' }}>
                     <input
                       id="password" type={showPw ? 'text' : 'password'}
                       placeholder="••••••••" value={password} required disabled={loading}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="ms-field" style={{ paddingRight:44 }}
+                      className="ms-field" style={{ paddingRight: 44 }}
                     />
                     <button type="button" className="ms-pw-toggle"
                       aria-label={showPw ? 'Hide password' : 'Show password'}
                       onClick={() => setShowPw(v => !v)}>
                       {showPw ? (
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/>
-                          <path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/>
-                          <line x1="1" y1="1" x2="23" y2="23"/>
+                          <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94" />
+                          <path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19" />
+                          <line x1="1" y1="1" x2="23" y2="23" />
                         </svg>
                       ) : (
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                          <circle cx="12" cy="12" r="3"/>
+                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                          <circle cx="12" cy="12" r="3" />
                         </svg>
                       )}
                     </button>
@@ -639,11 +636,11 @@ export default function Login() {
                 </div>
 
                 {/* Remember + Forgot */}
-                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-                  <label style={{ display:'flex', alignItems:'center', gap:8, cursor:'pointer' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
                     <input type="checkbox" checked={remember} onChange={e => setRemember(e.target.checked)}
-                      style={{ accentColor:'#00ADB5', width:16, height:16, cursor:'pointer' }} />
-                    <span style={{ fontSize:13, color:'#393E46', fontWeight:500 }}>Remember for 30 days</span>
+                      style={{ accentColor: '#00ADB5', width: 16, height: 16, cursor: 'pointer' }} />
+                    <span style={{ fontSize: 13, color: '#393E46', fontWeight: 500 }}>Remember for 30 days</span>
                   </label>
                   <Link to="/forgot-password" className="ms-forgot">Forgot password?</Link>
                 </div>
@@ -651,13 +648,13 @@ export default function Login() {
                 {/* Error */}
                 {error && (
                   <div style={{
-                    display:'flex', alignItems:'flex-start', gap:10,
-                    padding:'12px 14px', borderRadius:10, fontSize:13,
-                    background:'rgba(239,68,68,0.08)', border:'1px solid rgba(239,68,68,0.22)',
-                    color:'#b91c1c', animation:'ms-fadeUp 0.3s ease',
-                    fontFamily:"'Plus Jakarta Sans', sans-serif",
+                    display: 'flex', alignItems: 'flex-start', gap: 10,
+                    padding: '12px 14px', borderRadius: 10, fontSize: 13,
+                    background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.22)',
+                    color: '#b91c1c', animation: 'ms-fadeUp 0.3s ease',
+                    fontFamily: "'Plus Jakarta Sans', sans-serif",
                   }}>
-                    <svg style={{ flexShrink:0, marginTop:1 }} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                    <svg style={{ flexShrink: 0, marginTop: 1 }} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
                     <span>{error}</span>
                   </div>
                 )}
@@ -667,8 +664,8 @@ export default function Login() {
                   {loading ? (
                     <>
                       <svg className="ms-spinner" width="18" height="18" viewBox="0 0 24 24" fill="none">
-                        <circle cx="12" cy="12" r="10" stroke="rgba(255,255,255,0.3)" strokeWidth="4"/>
-                        <path fill="white" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/>
+                        <circle cx="12" cy="12" r="10" stroke="rgba(255,255,255,0.3)" strokeWidth="4" />
+                        <path fill="white" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
                       </svg>
                       Signing in…
                     </>
@@ -687,42 +684,42 @@ export default function Login() {
               <button type="button" className="ms-btn-google"
                 onClick={() => alert('Google OAuth — configure GOOGLE_CLIENT_ID in your backend .env')}>
                 <svg width="20" height="20" viewBox="0 0 24 24">
-                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
                 </svg>
                 Continue with Google
               </button>
             </div>
 
             {/* Sign up link */}
-            <p style={{ textAlign:'center', fontSize:14, color:'#393E46', marginTop:22, fontWeight:500 }}>
+            <p style={{ textAlign: 'center', fontSize: 14, color: '#393E46', marginTop: 22, fontWeight: 500 }}>
               Don't have an account?{' '}
               <Link to="/signup" className="ms-signup-link">Sign up free</Link>
             </p>
 
             {/* Demo credentials — same card style as homepage floating cards */}
             <div style={{
-              marginTop:20, padding:'14px 16px', borderRadius:14,
-              background:'rgba(255,255,255,0.7)', backdropFilter:'blur(12px)',
-              border:'1.5px dashed rgba(0,173,181,0.3)',
-              boxShadow:'0 4px 16px rgba(0,0,0,0.05)',
+              marginTop: 20, padding: '14px 16px', borderRadius: 14,
+              background: 'rgba(255,255,255,0.7)', backdropFilter: 'blur(12px)',
+              border: '1.5px dashed rgba(0,173,181,0.3)',
+              boxShadow: '0 4px 16px rgba(0,0,0,0.05)',
             }}>
-              <p style={{ fontSize:12, fontWeight:800, color:'#222831', marginBottom:8, fontFamily:"'Plus Jakarta Sans', sans-serif", display:'flex', alignItems:'center', gap:6 }}>
-                <span style={{ display:'inline-block', width:7, height:7, borderRadius:'50%', background:'#00ADB5' }} />
+              <p style={{ fontSize: 12, fontWeight: 800, color: '#222831', marginBottom: 8, fontFamily: "'Plus Jakarta Sans', sans-serif", display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ display: 'inline-block', width: 7, height: 7, borderRadius: '50%', background: '#00ADB5' }} />
                 Demo credentials — click any row to fill
               </p>
               {[
-                { label:'Buyer',  em:'buyer@movesmart.ai',  pw:'Buyer@123' },
-                { label:'Broker', em:'broker@movesmart.ai', pw:'Broker@123' },
-                { label:'Owner',  em:'owner@movesmart.ai',  pw:'Owner@123' },
-                { label:'Admin',  em:'admin@movesmart.ai',  pw:'Admin@123' },
+                { label: 'Buyer', em: 'buyer@movesmart.ai', pw: 'Buyer@123' },
+                { label: 'Broker', em: 'broker@movesmart.ai', pw: 'Broker@123' },
+                { label: 'Owner', em: 'owner@movesmart.ai', pw: 'Owner@123' },
+                { label: 'Admin', em: 'admin@movesmart.ai', pw: 'Admin@123' },
               ].map(({ label, em, pw }) => (
                 <div key={label} className="ms-demo-row" onClick={() => fillDemo(em, pw)}>
-                  <span style={{ fontWeight:800, color:'#222831', minWidth:52, fontFamily:"'Plus Jakarta Sans', sans-serif" }}>{label}</span>
-                  <span style={{ fontFamily:'monospace', opacity:0.7, fontSize:10 }}>{em}</span>
-                  <span style={{ fontFamily:'monospace', opacity:0.5, fontSize:10, marginLeft:6 }}>{pw}</span>
+                  <span style={{ fontWeight: 800, color: '#222831', minWidth: 52, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>{label}</span>
+                  <span style={{ fontFamily: 'monospace', opacity: 0.7, fontSize: 10 }}>{em}</span>
+                  <span style={{ fontFamily: 'monospace', opacity: 0.5, fontSize: 10, marginLeft: 6 }}>{pw}</span>
                 </div>
               ))}
             </div>

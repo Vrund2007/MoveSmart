@@ -38,7 +38,7 @@ const ROLES = [
 ];
 
 export default function ChooseYourJourney() {
-  const { setRole } = useContext(AuthContext);
+  const { setRole, setUser, user } = useContext(AuthContext);
   const [selected, setSelected] = useState('find_accommodation');
   const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
@@ -46,7 +46,13 @@ export default function ChooseYourJourney() {
   const handleConfirm = async () => {
     setSubmitting(true);
     try {
-      await setRole(selected);
+      const res = await setRole(selected);
+      if (!res || !res.success) {
+        // Fallback for frontend-only presentation
+        const updatedUser = { ...user, role: selected };
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+        setUser(updatedUser);
+      }
       // Accommodation seekers go through the onboarding wizard; other roles go directly to dashboards
       if (selected === 'find_accommodation') {
         navigate('/onboarding');
