@@ -1,264 +1,240 @@
-// src/pages/Onboarding.jsx
-// Onboarding questionnaire wizard for Accommodation Seeker (v2.0, PRD §6, Architecture.md §4.0)
-// Collects: work_location, rent_budget, commute_tolerance, family_status, bhk_pref, lifestyle_pref
-
+// src/pages/Onboarding.jsx — Role-based Onboarding Questionnaire (PRD §6, Architecture.md §4.0, database.md §3.1)
 import React, { useState, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ProfileContext } from '../context/ProfileContext';
+import { AuthContext } from '../context/AuthContext';
+import Button from '../components/common/Button';
+import Input from '../components/common/Input';
 
 export default function Onboarding() {
-  const { updateProfile } = useContext(ProfileContext);
+  const { user, updateProfile } = useContext(AuthContext);
   const navigate = useNavigate();
-  const [step, setStep] = useState(1); // Steps: 1 (Budget & Commute), 2 (Lifestyle Preferences), 3 (Family Details)
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
 
-  // Local form state
-  const [rentBudget, setRentBudget] = useState(30000);
-  const [commuteTime, setCommuteTime] = useState(25);
-  const [workLocation, setWorkLocation] = useState('Vastrapur');
-  
-  const [safetyWeight, setSafetyWeight] = useState(5);
-  const [schoolsWeight, setSchoolsWeight] = useState(4);
-  const [greeneryWeight, setGreeneryWeight] = useState(3);
-  const [costWeight, setCostWeight] = useState(3);
+  // Find Accommodation Form State
+  const [salary, setSalary] = useState('');
+  const [workLocationName, setWorkLocationName] = useState('SG Highway, Ahmedabad');
+  const [rentBudget, setRentBudget] = useState('30000');
+  const [lifestylePref, setLifestylePref] = useState('quiet');
+  const [commuteTolerance, setCommuteTolerance] = useState('30');
 
-  const [bhkPref, setBhkPref] = useState(3);
-  const [familyStatus, setFamilyStatus] = useState('family');
+  // Property Owner Form State
+  const [ownerPhone, setOwnerPhone] = useState('');
+  const [businessName, setBusinessName] = useState('');
 
-  const handleNext = () => {
-    if (step < 3) {
-      setStep(step + 1);
-    } else {
-      handleSubmit();
-    }
-  };
+  // Broker Form State
+  const [brokerPhone, setBrokerPhone] = useState('');
+  const [agencyName, setAgencyName] = useState('');
 
-  const handleBack = () => {
-    if (step > 1) {
-      setStep(step - 1);
-    }
-  };
+  // Company HR Form State
+  const [companyName, setCompanyName] = useState('');
+  const [officeName, setOfficeName] = useState('GIFT City, Ahmedabad');
 
-  const handleSubmit = async () => {
-    const onboardingData = {
-      rent_budget: Number(rentBudget),
-      commute_tolerance: Number(commuteTime),
-      work_location: workLocation,
-      bhk_pref: Number(bhkPref),
-      family_status: familyStatus,
-      lifestyle_pref: {
-        safety: Number(safetyWeight),
-        schools: Number(schoolsWeight),
-        greenery: Number(greeneryWeight),
-        cost: Number(costWeight)
+  const role = user?.role || 'find_accommodation';
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setError('');
+
+    let profileData = {};
+
+    if (role === 'find_accommodation') {
+      profileData = {
+        salary: salary ? Number(salary) : null,
+        work_or_college_location: {
+          name: workLocationName,
+          coordinates: [72.5714, 23.0225]
+        },
+        rent_budget: Number(rentBudget),
+        lifestyle_pref: lifestylePref,
+        commute_tolerance_minutes: Number(commuteTolerance)
+      };
+    } else if (role === 'property_owner') {
+      if (!ownerPhone.trim()) {
+        setError('Contact phone is required.');
+        setSubmitting(false);
+        return;
       }
-    };
-    await updateProfile(onboardingData);
-    localStorage.setItem('movesmart_onboarding_completed', 'true');
-    navigate('/dashboard');
+      profileData = {
+        contact_phone: ownerPhone,
+        business_name: businessName
+      };
+    } else if (role === 'broker') {
+      if (!brokerPhone.trim() || !agencyName.trim()) {
+        setError('Agency name and contact phone are required.');
+        setSubmitting(false);
+        return;
+      }
+      profileData = {
+        contact_phone: brokerPhone,
+        agency_name: agencyName
+      };
+    } else if (role === 'company_hr') {
+      if (!companyName.trim()) {
+        setError('Company name is required.');
+        setSubmitting(false);
+        return;
+      }
+      profileData = {
+        company_name: companyName,
+        office_locations: [
+          {
+            name: officeName,
+            coordinates: [72.5714, 23.0225]
+          }
+        ]
+      };
+    }
+
+    const res = await updateProfile(profileData);
+    if (res && res.success) {
+      if (role === 'property_owner') navigate('/owner');
+      else if (role === 'broker') navigate('/broker');
+      else if (role === 'company_hr') navigate('/company');
+      else navigate('/dashboard');
+    } else {
+      setError(res?.error || 'Failed to update profile. Please try again.');
+    }
+    setSubmitting(false);
   };
 
   return (
     <div className="min-h-screen bg-[#EEEEEE] flex flex-col justify-center items-center px-6 py-12">
-      <div className="w-full max-w-2xl bg-white border border-[#D9D9D9] rounded-xl p-8 shadow-sm">
-        {/* Progress Header */}
-        <div className="flex justify-between items-center mb-8 pb-4 border-b border-[#D9D9D9]">
-          <div>
-            <span className="text-[#00ADB5] font-semibold text-xs uppercase tracking-wider">Step {step} of 3</span>
-            <h1 className="text-2xl font-bold text-[#222831]">
-              {step === 1 && 'Budget & Location'}
-              {step === 2 && 'Relocation Priorities'}
-              {step === 3 && 'Family & Sizing'}
-            </h1>
-          </div>
-          <div className="flex space-x-2">
-            {[1, 2, 3].map((s) => (
-              <div
-                key={s}
-                className={`w-3 h-3 rounded-full transition-all duration-300 ${
-                  s === step ? 'bg-[#00ADB5]' : s < step ? 'bg-[#393E46]' : 'bg-[#D9D9D9]'
-                }`}
-              />
-            ))}
-          </div>
+      <div className="w-full max-w-xl bg-white border border-[#D9D9D9] rounded-xl p-8 shadow-sm">
+        <div className="text-center mb-8 border-b border-[#D9D9D9] pb-4">
+          <span className="text-[#00ADB5] font-semibold text-xs uppercase tracking-wider">Workspace Onboarding</span>
+          <h1 className="text-2xl font-bold text-[#222831] mt-1">
+            {role === 'find_accommodation' && 'Accommodation Preferences'}
+            {role === 'property_owner' && 'Owner Contact Information'}
+            {role === 'broker' && 'Broker Agency Details'}
+            {role === 'company_hr' && 'Corporate Relocation Setup'}
+          </h1>
+          <p className="text-xs text-[#393E46] mt-1">
+            Complete your profile details to unlock your personalized workspace.
+          </p>
         </div>
 
-        {/* Step Contents */}
-        <div className="min-h-[280px]">
-          {step === 1 && (
-            <div className="space-y-6 animate-fade-in">
-              <div>
-                <label className="block text-sm font-semibold text-[#222831] mb-2">
-                  What is your preferred monthly rent budget? (INR)
-                </label>
-                <div className="flex items-center space-x-4">
-                  <input
-                    type="range"
-                    min="10000"
-                    max="100000"
-                    step="2000"
-                    value={rentBudget}
-                    onChange={(e) => setRentBudget(e.target.value)}
-                    className="w-full h-2 bg-[#EEEEEE] rounded-lg appearance-none cursor-pointer accent-[#00ADB5]"
-                  />
-                  <span className="text-lg font-bold text-[#222831] w-28 tabular-nums">
-                    ₹{Number(rentBudget).toLocaleString('en-IN')}
-                  </span>
-                </div>
-              </div>
+        {error && (
+          <div className="mb-4 text-xs text-error font-medium bg-red-50 p-2.5 rounded border border-red-200">
+            {error}
+          </div>
+        )}
 
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          {/* Find Accommodation Form */}
+          {role === 'find_accommodation' && (
+            <>
+              <Input
+                label="Monthly Rent Budget (₹)"
+                type="number"
+                required
+                value={rentBudget}
+                onChange={(e) => setRentBudget(e.target.value)}
+                placeholder="e.g. 25000"
+              />
+              <Input
+                label="Work / College Location Name"
+                required
+                value={workLocationName}
+                onChange={(e) => setWorkLocationName(e.target.value)}
+                placeholder="e.g. SG Highway, Ahmedabad"
+              />
+              <Input
+                label="Commute Tolerance (Minutes)"
+                type="number"
+                required
+                value={commuteTolerance}
+                onChange={(e) => setCommuteTolerance(e.target.value)}
+                placeholder="e.g. 30"
+              />
+              <Input
+                label="Monthly Salary (Optional)"
+                type="number"
+                value={salary}
+                onChange={(e) => setSalary(e.target.value)}
+                placeholder="e.g. 75000"
+              />
               <div>
-                <label className="block text-sm font-semibold text-[#222831] mb-2">
-                  Where is your work/office located in Ahmedabad?
+                <label className="block text-xs font-semibold text-[#222831] mb-1">
+                  Lifestyle Preference
                 </label>
                 <select
-                  value={workLocation}
-                  onChange={(e) => setWorkLocation(e.target.value)}
-                  className="w-full border border-[#D9D9D9] p-3 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#00ADB5] bg-white text-[#222831]"
+                  value={lifestylePref}
+                  onChange={(e) => setLifestylePref(e.target.value)}
+                  className="w-full border border-[#D9D9D9] p-2.5 rounded-md text-xs text-[#222831] outline-none focus:border-[#00ADB5]"
                 >
-                  <option value="Vastrapur">Vastrapur / University Area</option>
-                  <option value="Satellite">Satellite / Shivranjani</option>
-                  <option value="Bodakdev">Bodakdev / SG Highway</option>
-                  <option value="Thaltej">Thaltej / Metro Zone</option>
-                  <option value="Prahladnagar">Prahladnagar Corporate Corridor</option>
-                  <option value="Gota">Gota North Ahmedabad</option>
+                  <option value="quiet">Quiet & Residential</option>
+                  <option value="vibrant">Vibrant & Nightlife</option>
+                  <option value="transit">Metro & Public Transit Focus</option>
                 </select>
               </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-[#222831] mb-2">
-                  Maximum acceptable commute tolerance? (Minutes)
-                </label>
-                <div className="flex items-center space-x-4">
-                  <input
-                    type="range"
-                    min="10"
-                    max="60"
-                    step="5"
-                    value={commuteTime}
-                    onChange={(e) => setCommuteTime(e.target.value)}
-                    className="w-full h-2 bg-[#EEEEEE] rounded-lg appearance-none cursor-pointer accent-[#00ADB5]"
-                  />
-                  <span className="text-lg font-bold text-[#222831] w-20 tabular-nums">
-                    {commuteTime} min
-                  </span>
-                </div>
-              </div>
-            </div>
+            </>
           )}
 
-          {step === 2 && (
-            <div className="space-y-6 animate-fade-in">
-              <p className="text-sm text-[#393E46] mb-4">
-                Rate how important each factor is for your relocation. MoveSmart uses these to rank localities.
-              </p>
-
-              {[
-                { label: 'Safety & Low Crime Rate', val: safetyWeight, setVal: setSafetyWeight },
-                { label: 'Proximity to Top Schools', val: schoolsWeight, setVal: setSchoolsWeight },
-                { label: 'Parks & Greenery Space', val: greeneryWeight, setVal: setGreeneryWeight },
-                { label: 'Affordable Living Expenses', val: costWeight, setVal: setCostWeight },
-              ].map((item, idx) => (
-                <div key={idx} className="flex justify-between items-center border-b border-[#EEEEEE] pb-3">
-                  <span className="text-sm text-[#222831] font-medium">{item.label}</span>
-                  <div className="flex items-center space-x-1">
-                    {[1, 2, 3, 4, 5].map((num) => (
-                      <button
-                        key={num}
-                        onClick={() => item.setVal(num)}
-                        className={`w-8 h-8 rounded-md text-xs font-semibold border transition-all ${
-                          item.val === num
-                            ? 'bg-[#00ADB5] border-[#00ADB5] text-white shadow-sm'
-                            : 'bg-white border-[#D9D9D9] text-[#393E46] hover:border-[#393E46]'
-                        }`}
-                      >
-                        {num}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
+          {/* Property Owner Form */}
+          {role === 'property_owner' && (
+            <>
+              <Input
+                label="Contact Phone"
+                required
+                value={ownerPhone}
+                onChange={(e) => setOwnerPhone(e.target.value)}
+                placeholder="+91 98765 43210"
+              />
+              <Input
+                label="Business / Agency Name (Optional)"
+                value={businessName}
+                onChange={(e) => setBusinessName(e.target.value)}
+                placeholder="e.g. Unique Properties"
+              />
+            </>
           )}
 
-          {step === 3 && (
-            <div className="space-y-6 animate-fade-in">
-              <div>
-                <label className="block text-sm font-semibold text-[#222831] mb-3">
-                  What is your family status?
-                </label>
-                <div className="grid grid-cols-3 gap-3">
-                  {[
-                    { id: 'single', label: 'Single Relocator', icon: '👤' },
-                    { id: 'couple', label: 'Couple / Duo', icon: '👥' },
-                    { id: 'family', label: 'Family with Kids', icon: '👨‍👩‍👧‍👦' },
-                  ].map((status) => {
-                    const isSelected = familyStatus === status.id;
-                    return (
-                      <button
-                        key={status.id}
-                        onClick={() => setFamilyStatus(status.id)}
-                        className={`p-4 border rounded-lg transition-all text-center flex flex-col items-center justify-center ${
-                          isSelected
-                            ? 'border-[#00ADB5] bg-[#00ADB5]/5 text-[#222831]'
-                            : 'border-[#D9D9D9] bg-white text-[#393E46] hover:border-[#393E46]'
-                        }`}
-                      >
-                        <span className="text-2xl mb-1">{status.icon}</span>
-                        <span className="text-xs font-semibold">{status.label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-[#222831] mb-3">
-                  Preferred BHK sizing?
-                </label>
-                <div className="grid grid-cols-4 gap-3">
-                  {[1, 2, 3, 4].map((bhk) => {
-                    const isSelected = bhkPref === bhk;
-                    return (
-                      <button
-                        key={bhk}
-                        onClick={() => setBhkPref(bhk)}
-                        className={`p-3 border rounded-lg font-bold text-center transition-all ${
-                          isSelected
-                            ? 'border-[#00ADB5] bg-[#00ADB5] text-white shadow-sm'
-                            : 'border-[#D9D9D9] bg-white text-[#393E46] hover:border-[#393E46]'
-                        }`}
-                      >
-                        {bhk} BHK
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
+          {/* Broker Form */}
+          {role === 'broker' && (
+            <>
+              <Input
+                label="Agency Name"
+                required
+                value={agencyName}
+                onChange={(e) => setAgencyName(e.target.value)}
+                placeholder="e.g. Apex Realty Brokerage"
+              />
+              <Input
+                label="Contact Phone"
+                required
+                value={brokerPhone}
+                onChange={(e) => setBrokerPhone(e.target.value)}
+                placeholder="+91 98765 43210"
+              />
+            </>
           )}
-        </div>
 
-        {/* Navigation Buttons */}
-        <div className="flex justify-between items-center mt-8 pt-4 border-t border-[#D9D9D9]">
-          <button
-            onClick={handleBack}
-            disabled={step === 1}
-            className={`px-5 py-2.5 rounded-lg border text-sm font-semibold transition-all ${
-              step === 1
-                ? 'opacity-40 cursor-not-allowed border-[#D9D9D9] text-[#393E46]'
-                : 'border-[#D9D9D9] bg-white hover:border-[#393E46] text-[#393E46]'
-            }`}
-          >
-            Back
-          </button>
-          
-          <button
-            onClick={handleNext}
-            className="bg-[#00ADB5] hover:bg-[#008C93] text-white font-semibold px-6 py-2.5 rounded-lg shadow-sm transition-all duration-200 transform active:scale-[0.99]"
-          >
-            {step === 3 ? 'Generate Relocation Workspace' : 'Continue'}
-          </button>
-        </div>
+          {/* Company HR Form */}
+          {role === 'company_hr' && (
+            <>
+              <Input
+                label="Company Name"
+                required
+                value={companyName}
+                onChange={(e) => setCompanyName(e.target.value)}
+                placeholder="e.g. TechCorp Solutions"
+              />
+              <Input
+                label="Main Office Location"
+                required
+                value={officeName}
+                onChange={(e) => setOfficeName(e.target.value)}
+                placeholder="e.g. GIFT City, Ahmedabad"
+              />
+            </>
+          )}
+
+          <Button type="submit" variant="primary" loading={submitting} className="mt-4">
+            Complete Onboarding & Launch Dashboard
+          </Button>
+        </form>
       </div>
     </div>
   );

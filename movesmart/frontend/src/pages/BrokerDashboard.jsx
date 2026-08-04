@@ -1,31 +1,206 @@
-// src/pages/BrokerDashboard.jsx
-// Premium responsive React + Tailwind CSS dashboard for MoveSmart Brokers.
-// Light Theme, premium CRM styling, custom SVG indicators, and side-navigation tabs.
-
-import React, { useState, useContext } from 'react';
+// src/pages/BrokerDashboard.jsx — Broker CRM Portal (PRD §6.3, Architecture.md §4.3)
+import React, { useState, useEffect, useContext, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
-import { LISTINGS } from '../utils/mockData';
+import {
+  getBrokerListings,
+  createBrokerListing,
+  updateBrokerListing,
+  deleteBrokerListing,
+  matchClient
+} from '../api/broker';
+import { getLeads, updateLeadStatus } from '../api/leads';
+import { getCommissions, createCommission, updateCommissionStatus } from '../api/commissions';
+
+import Card from '../components/common/Card';
+import Button from '../components/common/Button';
+import Input from '../components/common/Input';
+import StatusBadge from '../components/listings/StatusBadge';
+import ListingForm from '../components/owner/ListingForm';
+import LocalityCard from '../components/recommendations/LocalityCard';
+import ListingCard from '../components/listings/ListingCard';
+import LoadingSpinner from '../components/common/LoadingSpinner';
 
 export default function BrokerDashboard() {
-  const { user, logout } = useContext(AuthContext);
+  const { logout } = useContext(AuthContext);
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // Active sub-page tab
-  const activeTab = searchParams.get('tab') || 'overview';
+  const activeTab = searchParams.get('tab') || 'inventory';
   const setActiveTab = (tab) => setSearchParams({ tab });
 
-  // Mock managed inventory listings
-  const [myInventory, setMyInventory] = useState([
-    { id: 'lst-1', title: 'Modern 3 BHK in Vastrapur Heights', owner: 'Rajesh Patel', price: 34000, status: 'approved', views: 240, leads: 18 },
-    { id: 'lst-2', title: 'Luxury 4 BHK Penthouse at Bodakdev Vista', owner: 'Vikram Shah', price: 65000, status: 'approved', views: 420, leads: 32 },
-    { id: 'lst-4', title: 'High-rise 3 BHK near Thaltej Metro', owner: 'Nisha Mehta', price: 31000, status: 'approved', views: 180, leads: 12 },
-    { id: 'lst-new-99', title: 'Spacious 3 BHK at Vastrapur Garden', owner: 'Rajesh Patel', price: 33000, status: 'pending', views: 0, leads: 0 }
-  ]);
+  // 1. Managed Inventory State
+  const [inventory, setInventory] = useState([]);
+  const [invLoading, setInvLoading] = useState(false);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [editingListing, setEditingListing] = useState(null);
+  const [deletingListing, setDeletingListing] = useState(null);
 
-  const handleDeleteListing = (id) => {
-    setMyInventory(prev => prev.filter(item => item.id !== id));
+  // 2. Lead Management State
+  const [leads, setLeads] = useState([]);
+  const [leadsLoading, setLeadsLoading] = useState(false);
+
+  // 3. Commission Accounting State
+  const [commissions, setCommissions] = useState([]);
+  const [commLoading, setCommLoading] = useState(false);
+  const [isCommModalOpen, setIsCommModalOpen] = useState(false);
+  const [commForm, setCommForm] = useState({ lead_id: '', amount: '', listing_id: '' });
+
+  // 4. Client Matcher State
+  const [clientForm, setClientForm] = useState({ rent_budget: 30000, commute_tolerance_minutes: 30, lifestyle_pref: 'vibrant' });
+  const [matchResult, setMatchResult] = useState(null);
+  const [matchLoading, setMatchLoading] = useState(false);
+
+  // Form Submitting flags
+  const [submitting, setSubmitting] = useState(false);
+
+  // Fetch Managed Inventory
+  const fetchInventory = useCallback(async () => {
+    setInvLoading(true);
+    try {
+      const res = await getBrokerListings();
+      const data = res.data || res;
+      setInventory(Array.isArray(data) ? data : []);
+    } catch {
+      // ignore
+    } finally {
+      setInvLoading(false);
+    }
+  }, []);
+
+  // Fetch Leads
+  const fetchLeads = useCallback(async () => {
+    setLeadsLoading(true);
+    try {
+      const res = await getLeads();
+      const data = res.data || res;
+      setLeads(Array.isArray(data) ? data : []);
+    } catch {
+      // ignore
+    } finally {
+      setLeadsLoading(false);
+    }
+  }, []);
+
+  // Fetch Commissions
+  const fetchCommissions = useCallback(async () => {
+    setCommLoading(true);
+    try {
+      const res = await getCommissions();
+      const data = res.data || res;
+      setCommissions(Array.isArray(data) ? data : []);
+    } catch {
+      // ignore
+    } finally {
+      setCommLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchInventory();
+    fetchLeads();
+    fetchCommissions();
+  }, [fetchInventory, fetchLeads, fetchCommissions]);
+
+  // Handlers for Inventory
+  const handleCreateSubmit = async (formData) => {
+    setSubmitting(true);
+    try {
+      await createBrokerListing({
+        ...formData,
+        owner_id: formData.owner_id || '66b0ef3a9d8c2f1e4a7b901a'
+      });
+      setIsCreateOpen(false);
+      fetchInventory();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to create listing.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleEditSubmit = async (formData) => {
+    if (!editingListing) return;
+    setSubmitting(true);
+    try {
+      await updateBrokerListing(editingListing._id, formData);
+      setEditingListing(null);
+      fetchInventory();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to update listing.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deletingListing) return;
+    try {
+      await deleteBrokerListing(deletingListing._id);
+      setDeletingListing(null);
+      fetchInventory();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to delete listing.');
+    }
+  };
+
+  // Handlers for Lead Status Transitions (new -> contacted -> converted | lost)
+  const handleLeadStatusChange = async (leadId, newStatus) => {
+    try {
+      await updateLeadStatus(leadId, newStatus);
+      fetchLeads();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Invalid lead status transition.');
+    }
+  };
+
+  // Handlers for Commission Creation
+  const handleCommissionSubmit = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    try {
+      await createCommission({
+        lead_id: commForm.lead_id,
+        amount: Number(commForm.amount),
+        listing_id: commForm.listing_id || null,
+        payment_status: 'pending'
+      });
+      setIsCommModalOpen(false);
+      setCommForm({ lead_id: '', amount: '', listing_id: '' });
+      fetchCommissions();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to log commission. Lead must be converted.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleToggleCommissionPayment = async (commId, currentStatus) => {
+    const nextStatus = currentStatus === 'paid' ? 'pending' : 'paid';
+    try {
+      await updateCommissionStatus(commId, nextStatus);
+      fetchCommissions();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to update payment status.');
+    }
+  };
+
+  // Handler for Client Matcher (Reuses Recommendation Engine)
+  const handleClientMatchSubmit = async (e) => {
+    e.preventDefault();
+    setMatchLoading(true);
+    try {
+      const res = await matchClient({
+        rent_budget: Number(clientForm.rent_budget),
+        commute_tolerance_minutes: Number(clientForm.commute_tolerance_minutes),
+        lifestyle_pref: clientForm.lifestyle_pref
+      });
+      setMatchResult(res.data || res);
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to calculate client match.');
+    } finally {
+      setMatchLoading(false);
+    }
   };
 
   const handleLogout = () => {
@@ -33,38 +208,35 @@ export default function BrokerDashboard() {
     navigate('/');
   };
 
+  const totalEarnings = commissions.reduce((sum, c) => c.payment_status === 'paid' ? sum + c.amount : sum, 0);
+
   return (
     <div className="flex h-screen bg-[#EEEEEE] font-sans text-[#222831] overflow-hidden">
-      {/* Broker Sidebar */}
+      {/* Sidebar */}
       <aside className="w-64 bg-white border-r border-[#D9D9D9] flex flex-col justify-between flex-shrink-0 z-20">
         <div>
           <div className="p-6 border-b border-[#D9D9D9] flex items-center space-x-3">
             <span className="text-2xl" role="img" aria-label="Logo">🤝</span>
             <div>
               <span className="font-extrabold text-xl tracking-tight text-[#222831]">MoveSmart</span>
-              <span className="block text-[9px] font-bold text-[#00ADB5] uppercase tracking-wider">Broker CRM Suite</span>
+              <span className="block text-[9px] font-bold text-[#00ADB5] uppercase tracking-wider">Broker CRM Portal</span>
             </div>
           </div>
 
           <nav className="p-4 space-y-1">
             {[
-              { id: 'overview', label: 'CRM Overview', icon: '📈' },
-              { id: 'listings', label: 'My Listings', icon: '📋' },
-              { id: 'add-property', label: 'Add Property', icon: '＋' },
-              { id: 'leads', label: 'Leads & Enquiries', icon: '⚡' },
-              { id: 'clients', label: 'Client Management', icon: '👥' },
-              { id: 'schedule', label: 'Schedule Visits', icon: '📅' },
-              { id: 'messages', label: 'Broker Inbox', icon: '💬' },
-              { id: 'analytics', label: 'Performance Analytics', icon: '📊' },
-              { id: 'profile', label: 'Account Profile', icon: '👤' }
+              { id: 'inventory', label: `Managed Inventory (${inventory.length})`, icon: '📋' },
+              { id: 'leads', label: `Lead Pipeline (${leads.length})`, icon: '⚡' },
+              { id: 'commissions', label: `Commissions (₹${totalEarnings.toLocaleString()})`, icon: '💵' },
+              { id: 'client-match', label: 'AI Client Matcher', icon: '🎯' },
             ].map((tab) => {
               const isActive = activeTab === tab.id;
               return (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg text-xs font-bold transition-all ${
-                    isActive ? 'bg-[#00ADB5] text-white' : 'text-[#393E46] hover:bg-[#EEEEEE] hover:text-[#222831]'
+                  className={`w-full flex items-center space-x-2.5 px-3 py-2.5 rounded-lg text-xs font-bold transition-all ${
+                    isActive ? 'bg-[#00ADB5] text-white' : 'text-[#393E46] hover:bg-[#EEEEEE]'
                   }`}
                 >
                   <span className="text-sm">{tab.icon}</span>
@@ -86,379 +258,373 @@ export default function BrokerDashboard() {
         </div>
       </aside>
 
-      {/* Main Panel Content */}
+      {/* Main Content Area */}
       <main className="flex-1 flex flex-col overflow-hidden">
         <header className="bg-white border-b border-[#D9D9D9] h-16 flex items-center justify-between px-8 flex-shrink-0">
           <h2 className="text-lg font-bold text-[#222831] capitalize">
             {activeTab.replace('-', ' ')}
           </h2>
-          <span className="text-xs font-semibold px-2.5 py-1 bg-[#EEEEEE] border border-[#D9D9D9] rounded-full text-[#393E46] uppercase">
+          <span className="text-xs font-semibold px-2.5 py-1 bg-[#EEEEEE] border border-[#D9D9D9] rounded-full text-[#00ADB5] uppercase">
             Broker Partner
           </span>
         </header>
 
         <div className="flex-1 overflow-y-auto p-8 bg-[#EEEEEE]">
-          {activeTab === 'overview' && <OverviewView myInventory={myInventory} setActiveTab={setActiveTab} />}
-          {activeTab === 'listings' && <ListingsView myInventory={myInventory} handleDeleteListing={handleDeleteListing} />}
-          {activeTab === 'add-property' && <AddPropertyView setMyInventory={setMyInventory} setActiveTab={setActiveTab} />}
-          {activeTab === 'leads' && <LeadsView />}
-          {activeTab === 'clients' && <ClientsView />}
-          {activeTab === 'schedule' && <ScheduleView />}
-          {activeTab === 'messages' && <MessagesView />}
-          {activeTab === 'analytics' && <AnalyticsView myInventory={myInventory} />}
-          {activeTab === 'profile' && <ProfileView />}
+          {/* TAB 1: Managed Inventory */}
+          {activeTab === 'inventory' && (
+            <div className="space-y-6 animate-fade-in">
+              <div className="flex justify-between items-center">
+                <h3 className="font-bold text-lg text-text-primary">Managed Property Inventory</h3>
+                <Button variant="primary" size="sm" onClick={() => setIsCreateOpen(true)}>
+                  + Add Property (for Owner)
+                </Button>
+              </div>
+
+              {invLoading ? (
+                <div className="py-16 text-center">
+                  <LoadingSpinner size="lg" message="Loading broker inventory..." />
+                </div>
+              ) : inventory.length === 0 ? (
+                <Card className="text-center py-12 text-xs text-text-secondary">
+                  No property listings submitted yet. Click "+ Add Property" to register listings on behalf of owners.
+                </Card>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {inventory.map((item) => (
+                    <Card key={item._id} className="flex flex-col justify-between h-full bg-white relative">
+                      <div>
+                        <div className="flex justify-between items-start gap-2 mb-2">
+                          <h4 className="font-bold text-base text-text-primary line-clamp-1">{item.title}</h4>
+                          <StatusBadge status={item.status} />
+                        </div>
+                        <p className="text-sm font-bold text-primary mb-1">
+                          ₹{item.price?.toLocaleString()} <span className="text-xs text-text-secondary font-normal">/ mo ({item.deal_type})</span>
+                        </p>
+                        <p className="text-xs text-text-secondary mb-3">
+                          {item.bhk} BHK • {item.locality}
+                        </p>
+
+                        {/* Rejection Alert Card */}
+                        {item.status === 'rejected' && item.rejection_reason && (
+                          <div className="bg-red-50 border border-red-200 rounded p-2.5 text-xs mb-3">
+                            <span className="font-bold text-error block mb-1">Rejection Reason:</span>
+                            <p className="italic text-text-primary">"{item.rejection_reason}"</p>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="pt-3 border-t border-border flex justify-end gap-2 text-xs">
+                        <button onClick={() => setEditingListing(item)} className="font-semibold text-primary hover:underline">
+                          Edit
+                        </button>
+                        <button onClick={() => setDeletingListing(item)} className="font-semibold text-error hover:underline">
+                          Delete
+                        </button>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* TAB 2: Lead Pipeline */}
+          {activeTab === 'leads' && (
+            <div className="space-y-6 animate-fade-in">
+              <h3 className="font-bold text-lg text-text-primary">Seeker Leads Pipeline</h3>
+
+              {leadsLoading ? (
+                <div className="py-16 text-center">
+                  <LoadingSpinner size="lg" message="Fetching leads pipeline..." />
+                </div>
+              ) : leads.length === 0 ? (
+                <Card className="text-center py-12 text-xs text-text-secondary">
+                  No active leads found in pipeline. Enquiries on your managed listings will register here automatically.
+                </Card>
+              ) : (
+                <Card className="p-0 overflow-hidden border border-border">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="bg-surface text-[10px] font-bold text-text-secondary uppercase border-b border-border">
+                        <th className="p-4">Seeker Name</th>
+                        <th className="p-4">Contact</th>
+                        <th className="p-4">Current Stage</th>
+                        <th className="p-4 text-right">Advance Stage Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border font-semibold text-text-primary">
+                      {leads.map((l) => (
+                        <tr key={l._id} className="hover:bg-surface/50 transition-colors">
+                          <td className="p-4 font-bold">{l.seeker_name}</td>
+                          <td className="p-4 text-text-secondary">{l.seeker_phone || l.seeker_email || 'Coordinates on file'}</td>
+                          <td className="p-4">
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
+                              l.lead_status === 'converted' ? 'bg-green-100 text-green-700' :
+                              l.lead_status === 'contacted' ? 'bg-blue-100 text-blue-700' :
+                              l.lead_status === 'lost' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'
+                            }`}>
+                              {l.lead_status}
+                            </span>
+                          </td>
+                          <td className="p-4 text-right space-x-2">
+                            {l.lead_status === 'new' && (
+                              <button
+                                onClick={() => handleLeadStatusChange(l._id, 'contacted')}
+                                className="bg-blue-600 text-white px-2.5 py-1 rounded text-[10px] font-bold"
+                              >
+                                Mark Contacted
+                              </button>
+                            )}
+                            {l.lead_status === 'contacted' && (
+                              <>
+                                <button
+                                  onClick={() => handleLeadStatusChange(l._id, 'converted')}
+                                  className="bg-green-600 text-white px-2.5 py-1 rounded text-[10px] font-bold"
+                                >
+                                  Mark Converted
+                                </button>
+                                <button
+                                  onClick={() => handleLeadStatusChange(l._id, 'lost')}
+                                  className="bg-red-600 text-white px-2.5 py-1 rounded text-[10px] font-bold"
+                                >
+                                  Mark Lost
+                                </button>
+                              </>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </Card>
+              )}
+            </div>
+          )}
+
+          {/* TAB 3: Commission Accounting */}
+          {activeTab === 'commissions' && (
+            <div className="space-y-6 animate-fade-in">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h3 className="font-bold text-lg text-text-primary">Commission Tracker</h3>
+                  <p className="text-xs text-text-secondary mt-0.5">
+                    Record commissions for converted deals. Total Earned: <strong className="text-green-600 tabular-nums">₹{totalEarnings.toLocaleString()}</strong>
+                  </p>
+                </div>
+                <Button variant="primary" size="sm" onClick={() => setIsCommModalOpen(true)}>
+                  + Log Commission
+                </Button>
+              </div>
+
+              {commLoading ? (
+                <div className="py-16 text-center">
+                  <LoadingSpinner size="lg" message="Loading commissions ledger..." />
+                </div>
+              ) : commissions.length === 0 ? (
+                <Card className="text-center py-12 text-xs text-text-secondary">
+                  No commission entries recorded. Log commissions for converted leads.
+                </Card>
+              ) : (
+                <Card className="p-0 overflow-hidden border border-border">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="bg-surface text-[10px] font-bold text-text-secondary uppercase border-b border-border">
+                        <th className="p-4">Lead ID</th>
+                        <th className="p-4">Commission Amount</th>
+                        <th className="p-4">Deal Date</th>
+                        <th className="p-4">Payment Status</th>
+                        <th className="p-4 text-right">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border font-semibold text-text-primary">
+                      {commissions.map((c) => (
+                        <tr key={c._id} className="hover:bg-surface/50 transition-colors">
+                          <td className="p-4 font-mono text-[11px]">{c.lead_id}</td>
+                          <td className="p-4 font-bold text-green-600 tabular-nums">₹{c.amount?.toLocaleString()}</td>
+                          <td className="p-4 text-text-secondary">{c.deal_date || 'N/A'}</td>
+                          <td className="p-4">
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
+                              c.payment_status === 'paid' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
+                            }`}>
+                              {c.payment_status}
+                            </span>
+                          </td>
+                          <td className="p-4 text-right">
+                            <button
+                              onClick={() => handleToggleCommissionPayment(c._id, c.payment_status)}
+                              className="text-xs font-bold text-primary hover:underline"
+                            >
+                              Toggle {c.payment_status === 'paid' ? 'Pending' : 'Paid'}
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </Card>
+              )}
+            </div>
+          )}
+
+          {/* TAB 4: AI Client Matcher */}
+          {activeTab === 'client-match' && (
+            <div className="space-y-6 max-w-2xl mx-auto animate-fade-in">
+              <Card className="space-y-4">
+                <h3 className="font-bold text-lg text-text-primary">AI Client Matcher</h3>
+                <p className="text-xs text-text-secondary">
+                  Match client accommodation preferences with regional locality scores and approved inventory using the MoveSmart recommendation engine.
+                </p>
+
+                <form onSubmit={handleClientMatchSubmit} className="space-y-4 pt-2">
+                  <div className="grid grid-cols-2 gap-4">
+                    <Input
+                      label="Client Monthly Budget (₹)"
+                      type="number"
+                      value={clientForm.rent_budget}
+                      onChange={(e) => setClientForm({ ...clientForm, rent_budget: e.target.value })}
+                    />
+                    <Input
+                      label="Commute Tolerance (mins)"
+                      type="number"
+                      value={clientForm.commute_tolerance_minutes}
+                      onChange={(e) => setClientForm({ ...clientForm, commute_tolerance_minutes: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-text-primary mb-1 block">Lifestyle Preference</label>
+                    <select
+                      value={clientForm.lifestyle_pref}
+                      onChange={(e) => setClientForm({ ...clientForm, lifestyle_pref: e.target.value })}
+                      className="w-full bg-surface border border-border rounded p-2 text-xs text-text-primary"
+                    >
+                      <option value="quiet">Quiet Residential</option>
+                      <option value="vibrant">Vibrant & Commercial</option>
+                      <option value="transit">Transit Centric</option>
+                    </select>
+                  </div>
+                  <Button type="submit" variant="primary" loading={matchLoading} className="w-full">
+                    Compute Client Recommendations
+                  </Button>
+                </form>
+              </Card>
+
+              {matchResult && (
+                <div className="space-y-6">
+                  <div>
+                    <h4 className="font-bold text-sm text-text-primary uppercase tracking-wider mb-3">Top Recommended Localities</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {matchResult.recommended_localities?.map((loc, idx) => (
+                        <LocalityCard key={loc.locality} item={loc} rank={idx + 1} isTop={idx === 0} />
+                      ))}
+                    </div>
+                  </div>
+
+                  {matchResult.matched_properties?.length > 0 && (
+                    <div>
+                      <h4 className="font-bold text-sm text-text-primary uppercase tracking-wider mb-3">Matched Approved Properties</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {matchResult.matched_properties.map((prop) => (
+                          <ListingCard key={prop._id} listing={prop} onClick={() => navigate(`/listings/${prop._id}`)} />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </main>
-    </div>
-  );
-}
 
-/* ─────────────────────────────────────────────────────────────
-   SUB-VIEWS
-───────────────────────────────────────────────────────────── */
-
-function OverviewView({ myInventory, setActiveTab }) {
-  return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="bg-white border border-[#D9D9D9] p-5 rounded-xl">
-          <span className="text-[10px] font-bold text-[#393E46] uppercase">Managed Units</span>
-          <div className="text-3xl font-extrabold text-[#222831] mt-1 tabular-nums">{myInventory.length}</div>
-        </div>
-        <div className="bg-white border border-[#D9D9D9] p-5 rounded-xl">
-          <span className="text-[10px] font-bold text-[#393E46] uppercase">Active Inquiries</span>
-          <div className="text-3xl font-extrabold text-[#00ADB5] mt-1 tabular-nums">18 Leads</div>
-        </div>
-        <div className="bg-white border border-[#D9D9D9] p-5 rounded-xl">
-          <span className="text-[10px] font-bold text-[#393E46] uppercase">Escrow / Deals Closed</span>
-          <div className="text-3xl font-extrabold text-[#22C55E] mt-1 tabular-nums">4 Closed</div>
-        </div>
-        <div className="bg-white border border-[#D9D9D9] p-5 rounded-xl">
-          <span className="text-[10px] font-bold text-[#393E46] uppercase">Broker Commission</span>
-          <div className="text-3xl font-extrabold text-[#222831] mt-1 tabular-nums">₹54,000</div>
-        </div>
-      </div>
-
-      {/* Property Analytics Graph block */}
-      <div className="bg-white border border-[#D9D9D9] p-6 rounded-xl space-y-4">
-        <h3 className="text-sm font-bold text-[#222831] uppercase tracking-wider">Weekly Lead Funnel Conversions</h3>
-        <div className="flex items-end justify-between h-40 border-b border-l border-[#D9D9D9] pt-6 px-4">
-          {[
-            { label: 'Mon', count: 12 }, { label: 'Tue', count: 18 },
-            { label: 'Wed', count: 15 }, { label: 'Thu', count: 24 },
-            { label: 'Fri', count: 32 }, { label: 'Sat', count: 20 },
-            { label: 'Sun', count: 10 }
-          ].map((bar, i) => (
-            <div key={i} className="flex flex-col items-center group">
-              <span className="text-[9px] font-bold opacity-0 group-hover:opacity-100 transition-opacity mb-1 tabular-nums">
-                {bar.count}
-              </span>
-              <div 
-                className="w-7 bg-[#00ADB5] rounded-t-sm group-hover:bg-[#008C93]"
-                style={{ height: `${(bar.count / 35) * 110}px` }}
-              />
-              <span className="text-[9px] text-[#393E46] mt-1">{bar.label}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ListingsView({ myInventory, handleDeleteListing }) {
-  return (
-    <div className="bg-white border border-[#D9D9D9] p-6 rounded-xl shadow-sm space-y-4 animate-fade-in">
-      <h3 className="text-sm font-bold text-[#222831] uppercase tracking-wider">Managed Housing Inventory</h3>
-      <div className="overflow-x-auto border border-[#D9D9D9] rounded-lg">
-        <table className="w-full text-left border-collapse text-xs">
-          <thead>
-            <tr className="bg-[#EEEEEE] text-[10px] font-bold text-[#393E46] uppercase border-b border-[#D9D9D9]">
-              <th className="p-4">Listing Title</th>
-              <th className="p-4">Local Owner</th>
-              <th className="p-4">Monthly Rate</th>
-              <th className="p-4">Approval State</th>
-              <th className="p-4 text-right">Delete Action</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-[#EEEEEE] text-[#222831] font-semibold">
-            {myInventory.map((item) => (
-              <tr key={item.id} className="hover:bg-[#EEEEEE]/20 transition-colors">
-                <td className="p-4 font-bold">{item.title}</td>
-                <td className="p-4 font-medium text-[#393E46]">{item.owner}</td>
-                <td className="p-4 tabular-nums">₹{item.price.toLocaleString('en-IN')}/mo</td>
-                <td className="p-4">
-                  <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
-                    item.status === 'approved' ? 'bg-[#22C55E]/10 text-[#22C55E]' : 'bg-[#F59E0B]/10 text-[#F59E0B]'
-                  }`}>
-                    {item.status}
-                  </span>
-                </td>
-                <td className="p-4 text-right">
-                  <button
-                    onClick={() => handleDeleteListing(item.id)}
-                    className="text-[10px] font-bold text-[#EF4444] hover:underline"
-                  >
-                    Delete Listing
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
-function AddPropertyView({ setMyInventory, setActiveTab }) {
-  const [step, setStep] = useState(1);
-  const [title, setTitle] = useState('');
-  const [owner, setOwner] = useState('');
-  const [price, setPrice] = useState(25000);
-  const [locality, setLocality] = useState('Vastrapur');
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (!title || !owner) return;
-    const newL = {
-      id: 'lst-new-' + Math.floor(Math.random() * 1000),
-      title,
-      owner,
-      price: Number(price),
-      locality,
-      status: 'pending',
-      views: 0,
-      leads: 0
-    };
-    setMyInventory(prev => [newL, ...prev]);
-    setActiveTab('listings');
-  };
-
-  return (
-    <div className="max-w-xl mx-auto bg-white border border-[#D9D9D9] p-6 rounded-xl shadow-sm space-y-6 animate-fade-in text-xs">
-      <div className="flex justify-between items-center border-b border-[#EEEEEE] pb-3">
-        <h3 className="text-sm font-bold text-[#222831] uppercase tracking-wider">Multi-Step Property Submission</h3>
-        <span className="font-bold text-[#00ADB5]">Step {step} of 3</span>
-      </div>
-
-      {step === 1 && (
-        <div className="space-y-4">
-          <div>
-            <label className="block text-[10px] font-bold text-[#393E46] uppercase mb-1">Property Name / Title</label>
-            <input
-              type="text"
-              required
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. Spacious 3 BHK at Satellite Heights"
-              className="w-full border border-[#D9D9D9] p-2.5 rounded-lg text-xs"
+      {/* Add Property Modal */}
+      {isCreateOpen && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-xl space-y-4">
+            <h3 className="text-lg font-bold text-text-primary pb-2 border-b border-border">
+              Add Listing for Property Owner
+            </h3>
+            <ListingForm
+              onSubmit={handleCreateSubmit}
+              loading={submitting}
+              onCancel={() => setIsCreateOpen(false)}
             />
-          </div>
-          <div>
-            <label className="block text-[10px] font-bold text-[#393E46] uppercase mb-1">Locality</label>
-            <select
-              value={locality}
-              onChange={(e) => setLocality(e.target.value)}
-              className="w-full border border-[#D9D9D9] p-2.5 rounded-lg text-xs"
-            >
-              <option value="Vastrapur">Vastrapur</option>
-              <option value="Satellite">Satellite</option>
-              <option value="Thaltej">Thaltej</option>
-            </select>
-          </div>
-          <button onClick={() => setStep(2)} className="bg-[#00ADB5] text-white px-4 py-2 rounded-lg font-bold">
-            Continue to Pricing
-          </button>
-        </div>
-      )}
-
-      {step === 2 && (
-        <div className="space-y-4">
-          <div>
-            <label className="block text-[10px] font-bold text-[#393E46] uppercase mb-1">Monthly Lease Cost (INR)</label>
-            <input
-              type="number"
-              value={price}
-              onChange={(e) => setPrice(e.target.value)}
-              className="w-full border border-[#D9D9D9] p-2.5 rounded-lg text-xs"
-            />
-          </div>
-          <div>
-            <label className="block text-[10px] font-bold text-[#393E46] uppercase mb-1">Owner Name</label>
-            <input
-              type="text"
-              required
-              value={owner}
-              onChange={(e) => setOwner(e.target.value)}
-              placeholder="e.g. Vikram Shah"
-              className="w-full border border-[#D9D9D9] p-2.5 rounded-lg text-xs"
-            />
-          </div>
-          <div className="flex space-x-2">
-            <button onClick={() => setStep(1)} className="border border-[#D9D9D9] px-4 py-2 rounded-lg font-bold">
-              Back
-            </button>
-            <button onClick={() => setStep(3)} className="bg-[#00ADB5] text-white px-4 py-2 rounded-lg font-bold">
-              Continue to Amenities
-            </button>
           </div>
         </div>
       )}
 
-      {step === 3 && (
-        <div className="space-y-4">
-          <div>
-            <span className="block text-[10px] font-bold text-[#393E46] uppercase mb-2">Amenities Checklist</span>
-            <div className="grid grid-cols-2 gap-2 font-semibold">
-              <label className="flex items-center space-x-2">
-                <input type="checkbox" defaultChecked className="rounded text-[#00ADB5]" />
-                <span>Wi-Fi Enabled</span>
-              </label>
-              <label className="flex items-center space-x-2">
-                <input type="checkbox" defaultChecked className="rounded text-[#00ADB5]" />
-                <span>RO Water System</span>
-              </label>
-              <label className="flex items-center space-x-2">
-                <input type="checkbox" className="rounded text-[#00ADB5]" />
-                <span>Covered Parking</span>
-              </label>
+      {/* Edit Property Modal */}
+      {editingListing && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-xl space-y-4">
+            <h3 className="text-lg font-bold text-text-primary pb-2 border-b border-border">
+              Edit Listing: {editingListing.title}
+            </h3>
+            <ListingForm
+              initialValues={editingListing}
+              onSubmit={handleEditSubmit}
+              loading={submitting}
+              onCancel={() => setEditingListing(null)}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Delete Dialog */}
+      {deletingListing && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl p-6 max-w-sm w-full shadow-xl">
+            <h3 className="text-lg font-bold text-text-primary mb-2">Delete Property Listing?</h3>
+            <p className="text-xs text-text-secondary mb-6">
+              Are you sure you want to delete <strong>"{deletingListing.title}"</strong>?
+            </p>
+            <div className="flex gap-3 justify-end">
+              <Button variant="secondary" size="sm" onClick={() => setDeletingListing(null)}>Cancel</Button>
+              <Button variant="danger" size="sm" onClick={handleDeleteConfirm}>Delete</Button>
             </div>
           </div>
-          <div className="flex space-x-2">
-            <button onClick={() => setStep(2)} className="border border-[#D9D9D9] px-4 py-2 rounded-lg font-bold">
-              Back
-            </button>
-            <button onClick={handleSubmit} className="bg-[#00ADB5] text-white px-4 py-2 rounded-lg font-bold">
-              Submit & Register Property
-            </button>
-          </div>
         </div>
       )}
-    </div>
-  );
-}
 
-function LeadsView() {
-  const [leads] = useState([
-    { id: 'l-1', seeker: 'Ayush Sharma', budget: 35000, area: 'Vastrapur', priority: 'high', date: '2 hours ago' },
-    { id: 'l-2', seeker: 'Rohan Shah', budget: 70000, area: 'Bodakdev', priority: 'medium', date: '1 day ago' }
-  ]);
-
-  return (
-    <div className="bg-white border border-[#D9D9D9] p-6 rounded-xl shadow-sm space-y-4 animate-fade-in">
-      <h3 className="text-sm font-bold text-[#222831] uppercase tracking-wider">Seeker Relocation Leads</h3>
-      <div className="space-y-4 text-xs">
-        {leads.map((l) => (
-          <div key={l.id} className="border border-[#D9D9D9] p-4 rounded-lg bg-[#EEEEEE]/40 flex justify-between items-center">
+      {/* Log Commission Modal */}
+      {isCommModalOpen && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <form onSubmit={handleCommissionSubmit} className="bg-white rounded-xl p-6 max-w-md w-full shadow-xl space-y-4">
+            <h3 className="text-lg font-bold text-text-primary border-b border-border pb-2">Log Deal Commission</h3>
+            <p className="text-xs text-text-secondary">
+              Select a converted lead to record commission earnings.
+            </p>
             <div>
-              <strong className="text-sm text-[#222831]">{l.seeker}</strong>
-              <div className="text-[#393E46] mt-0.5">Seeking accommodation in {l.area} • Budget: ₹{l.budget.toLocaleString('en-IN')}/mo</div>
+              <label className="text-xs font-semibold text-text-primary mb-1 block">Select Converted Lead</label>
+              <select
+                required
+                value={commForm.lead_id}
+                onChange={(e) => setCommForm({ ...commForm, lead_id: e.target.value })}
+                className="w-full bg-surface border border-border rounded p-2.5 text-xs text-text-primary"
+              >
+                <option value="">Select a lead...</option>
+                {leads.filter(l => l.lead_status === 'converted').map((l) => (
+                  <option key={l._id} value={l._id}>{l.seeker_name} (ID: {l._id})</option>
+                ))}
+              </select>
+              {leads.filter(l => l.lead_status === 'converted').length === 0 && (
+                <p className="text-[11px] text-amber-600 mt-1">No converted leads available. Advance a lead to 'converted' first.</p>
+              )}
             </div>
-            <div className="text-right">
-              <span className={`text-[8px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
-                l.priority === 'high' ? 'bg-[#EF4444]/10 text-[#EF4444]' : 'bg-[#00ADB5]/10 text-[#00ADB5]'
-              }`}>
-                {l.priority} Priority
-              </span>
-              <span className="block text-[9px] text-[#393E46]/60 mt-1">{l.date}</span>
+            <Input
+              label="Commission Amount (₹)"
+              type="number"
+              required
+              value={commForm.amount}
+              onChange={(e) => setCommForm({ ...commForm, amount: e.target.value })}
+              placeholder="e.g. 15000"
+            />
+            <div className="flex gap-3 justify-end pt-2">
+              <Button type="button" variant="secondary" size="sm" onClick={() => setIsCommModalOpen(false)}>Cancel</Button>
+              <Button type="submit" variant="primary" size="sm" loading={submitting}>Save Commission</Button>
             </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function ClientsView() {
-  const [clients] = useState([
-    { id: 'c-1', name: 'Ayush Sharma', type: 'Renter', stage: 'Site Visiting', progress: 60 },
-    { id: 'c-2', name: 'Rohan Shah', type: 'Buyer', stage: 'Negotiations', progress: 85 }
-  ]);
-
-  return (
-    <div className="bg-white border border-[#D9D9D9] p-6 rounded-xl shadow-sm space-y-4 animate-fade-in">
-      <h3 className="text-sm font-bold text-[#222831] uppercase tracking-wider">Client Follow-up Timeline</h3>
-      <div className="space-y-4 text-xs font-semibold text-[#222831]">
-        {clients.map((c) => (
-          <div key={c.id} className="border border-[#D9D9D9] p-4 rounded-lg bg-[#EEEEEE]/30 space-y-2">
-            <div className="flex justify-between">
-              <strong>{c.name} ({c.type})</strong>
-              <span className="text-[#00ADB5]">{c.stage}</span>
-            </div>
-            <div className="w-full bg-[#EEEEEE] h-2 rounded-full overflow-hidden">
-              <div className="bg-[#00ADB5] h-2 rounded-full" style={{ width: `${c.progress}%` }} />
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function ScheduleView() {
-  const [visits] = useState([
-    { id: 'v-1', seeker: 'Ayush Sharma', time: '11:00 AM', date: '2026-08-05', property: 'Modern 3 BHK in Vastrapur Heights' }
-  ]);
-
-  return (
-    <div className="bg-white border border-[#D9D9D9] p-6 rounded-xl shadow-sm space-y-4 animate-fade-in text-xs">
-      <h3 className="text-sm font-bold text-[#222831] uppercase tracking-wider">Tour Schedule Calendar</h3>
-      {visits.map(v => (
-        <div key={v.id} className="border border-[#D9D9D9] p-4 rounded-lg bg-[#EEEEEE]/40 flex justify-between items-center">
-          <div>
-            <strong className="text-[#222831]">{v.property}</strong>
-            <span className="block text-[10px] text-[#393E46] mt-0.5">Tour requested by {v.seeker}</span>
-          </div>
-          <div className="text-right text-[#00ADB5] font-bold">
-            {v.date} @ {v.time}
-          </div>
+          </form>
         </div>
-      ))}
-    </div>
-  );
-}
-
-function MessagesView() {
-  return (
-    <div className="bg-white border border-[#D9D9D9] p-6 rounded-xl shadow-sm text-center py-12 animate-fade-in">
-      <span className="text-2xl">💬</span>
-      <h3 className="text-sm font-bold text-[#222831] uppercase tracking-wider mt-2">Chat logs inbox</h3>
-      <p className="text-xs text-[#393E46] mt-1">No active conversation threads. Leads will appear here on customer enquiry.</p>
-    </div>
-  );
-}
-
-function AnalyticsView({ myInventory }) {
-  return (
-    <div className="space-y-6 animate-fade-in text-xs">
-      <div className="bg-white border border-[#D9D9D9] p-6 rounded-xl shadow-sm space-y-4">
-        <h3 className="text-sm font-bold text-[#222831] uppercase tracking-wider">Property View Impression Count</h3>
-        <div className="space-y-3 font-semibold text-[#222831]">
-          {myInventory.map(item => (
-            <div key={item.id} className="flex justify-between items-center border-b border-[#EEEEEE] pb-2">
-              <span>{item.title}</span>
-              <span className="text-[#00ADB5] tabular-nums font-bold">{item.views} views</span>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ProfileView() {
-  return (
-    <div className="max-w-md mx-auto bg-white border border-[#D9D9D9] p-6 rounded-xl shadow-sm space-y-4 animate-fade-in text-xs font-semibold text-[#222831]">
-      <h3 className="text-sm font-bold text-[#222831] uppercase tracking-wider border-b border-[#EEEEEE] pb-2">Broker Profile Credentials</h3>
-      <div>
-        <span className="block text-[9px] text-[#393E46] uppercase">RERA Registration</span>
-        <div className="text-[#00ADB5] mt-0.5">GUJRERA/AHMED/987654</div>
-      </div>
-      <div>
-        <span className="block text-[9px] text-[#393E46] uppercase">Assigned Office Location</span>
-        <div className="mt-0.5">Satellite Main Road Branch, Ahmedabad</div>
-      </div>
+      )}
     </div>
   );
 }

@@ -183,7 +183,7 @@ export default function Login() {
   const yp = useCharPos(yellowRef, mx, my);
 
 
-  /* submit stub */
+  /* submit */
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -193,23 +193,16 @@ export default function Login() {
     if (res.success) {
       const loggedUser = res.user;
       
-      // Route to correct dashboard role
-      if (loggedUser.role === 'admin') {
-        navigate('/admin/review');
-      } else if (loggedUser.role === 'property_owner') {
-        navigate('/owner');
-      } else if (loggedUser.role === 'broker') {
-        navigate('/broker');
-      } else if (loggedUser.role === 'company_hr') {
-        navigate('/company');
+      if (!loggedUser.role) {
+        navigate('/choose-your-journey');
+      } else if (!loggedUser.role_profile || Object.keys(loggedUser.role_profile).length === 0) {
+        navigate('/onboarding');
       } else {
-        // Find accommodation check onboarding completed
-        const onboarded = localStorage.getItem('movesmart_onboarding_completed');
-        if (onboarded) {
-          navigate('/dashboard');
-        } else {
-          navigate('/choose-your-journey');
-        }
+        if (loggedUser.role === 'admin') navigate('/admin/review');
+        else if (loggedUser.role === 'property_owner') navigate('/owner');
+        else if (loggedUser.role === 'broker') navigate('/broker');
+        else if (loggedUser.role === 'company_hr') navigate('/company');
+        else navigate('/dashboard');
       }
     } else {
       setError(res.error || 'Invalid email or password.');

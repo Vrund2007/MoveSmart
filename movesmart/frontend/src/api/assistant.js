@@ -1,6 +1,11 @@
-// api/assistant.js — API client for AI assistant endpoint (Architecture.md §8: POST /api/assistant/chat)
-// Gemini API is called server-side only — frontend never holds the API key (Rules.md §5)
-import axios from 'axios';
+import api from '../lib/api';
 
-// TODO: implement sendMessage(message, conversationHistory) → POST /api/assistant/chat
-//       Handle Gemini rate-limit/quota errors gracefully with a user-facing fallback message (Rules.md §4)
+/**
+ * Send grounded user message to Gemini Assistant
+ * @param {string} message - User question
+ * @returns {Promise<object>} Assistant response payload { reply: string }
+ */
+export const sendMessage = async (message) => {
+  const response = await api.post('/assistant/chat', { message });
+  return response.data;
+};

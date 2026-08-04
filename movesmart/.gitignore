@@ -1,9 +1,12 @@
-# ─── Python ───────────────────────────────────────────────────────────────────
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Python / Django
 __pycache__/
 *.py[cod]
 *$py.class
-*.pyo
-*.pyd
 *.so
 .Python
 env/
@@ -12,69 +15,45 @@ ENV/
 env.bak/
 venv.bak/
 .venv/
-
-# Django
-*.log
-local_settings.py
-db.sqlite3
-db.sqlite3-journal
-
-# Distribution / packaging
-.eggs/
-*.egg-info/
-dist/
 build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
 *.egg
 MANIFEST
-
-# Unit test / coverage reports
-htmlcov/
-.tox/
-.nox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-.hypothesis/
 .pytest_cache/
+.coverage
+htmlcov/
 
-# ─── ML Artifacts ─────────────────────────────────────────────────────────────
-# Trained model binaries are excluded from git to avoid large binary blobs.
-# Re-generate locally by running ml/rent_prediction/train.py and ml/suspicious_listing/train.py.
-# See Memory.md "Decisions made during setup" for the rationale.
-backend/ml/rent_prediction/artifacts/*.pkl
-backend/ml/rent_prediction/artifacts/*.json
-backend/ml/suspicious_listing/artifacts/*.pkl
-backend/ml/suspicious_listing/artifacts/*.json
-
-# ─── Environment / Secrets ────────────────────────────────────────────────────
-.env
-.env.local
-.env.*.local
-
-# ─── Node / Frontend ──────────────────────────────────────────────────────────
+# Node / React
 node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
-frontend/build/
-frontend/dist/
-frontend/.parcel-cache/
-.cache/
+/frontend/build
+/frontend/dist
 
-# ─── OS / Editor ──────────────────────────────────────────────────────────────
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
-.idea/
+# IDEs & System files
 .vscode/
+.idea/
 *.swp
 *.swo
-*~
+.DS_Store
+Thumbs.db
+
+# ML Artifacts (Local temporary outputs)
+*.pkl
+*.joblib
+!movesmart/backend/ml/*/artifacts/.gitkeep

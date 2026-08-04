@@ -1,9 +1,23 @@
-// components/company/AllocationGrid.jsx — Grid for assigning employees to housing options (new v2.0, PRD §7.4, Architecture.md §4.4)
-// Submits allocations to POST /api/company/relocation-batches/:id/allocate
-// allocations[] are embedded inside relocation_batches (database.md §3.7)
-// TODO: accept batchId, employees[], candidates[] props
-// TODO: implement employee ↔ listing assignment UI
-function AllocationGrid() {
-  return <div>AllocationGrid — TODO</div>;
-}
+import React from 'react';
+import Card from '../common/Card';
+
+/**
+ * AllocationGrid Component.
+ */
+const AllocationGrid = ({ allocations = [] }) => {
+  return (
+    <div className="flex flex-col gap-2">
+      {allocations.map((a, idx) => (
+        <Card key={idx} className="flex justify-between items-center text-xs">
+          <div>
+            <span className="font-semibold text-text-primary">Employee #{a.employee_id}</span>
+            <span className="text-text-secondary ml-2">→ Listing #{a.listing_id}</span>
+          </div>
+          <span className="font-bold text-primary tabular-nums">₹{a.cost?.toLocaleString()}</span>
+        </Card>
+      ))}
+    </div>
+  );
+};
+
 export default AllocationGrid;

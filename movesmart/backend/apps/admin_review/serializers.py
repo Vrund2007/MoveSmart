@@ -3,14 +3,14 @@ from rest_framework import serializers
 
 
 class ReviewActionSerializer(serializers.Serializer):
-    """Validates PATCH /api/admin/listings/:id/review payload.
-    decision: 'approved' or 'rejected'
-    reason: required when decision == 'rejected' (FR-5); not applicable for approval.
-    """
+    """Validates PATCH /api/admin/listings/:id/review payload."""
     DECISION_CHOICES = ['approved', 'rejected']
     decision = serializers.ChoiceField(choices=DECISION_CHOICES)
-    reason = serializers.CharField(required=False, allow_blank=True)
+    reason = serializers.CharField(required=False, allow_blank=True, allow_null=True)
 
     def validate(self, data):
-        # TODO: if decision == 'rejected', require reason to be non-empty (FR-5)
+        if data.get('decision') == 'rejected':
+            reason = data.get('reason')
+            if not reason or not reason.strip():
+                raise serializers.ValidationError({"reason": "A reason is required when rejecting a listing."})
         return data

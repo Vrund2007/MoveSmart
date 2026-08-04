@@ -1,26 +1,102 @@
-"""db/leads_repo.py — PyMongo access layer for leads collection (database.md §3.5, new v2.0)
-leads reference enquiry_id — do NOT duplicate the enquiry's message/sender/listing data (database.md §1).
-"""
+"""db/leads_repo.py — PyMongo access layer for leads collection (database.md §3.4)"""
+from datetime import datetime, timezone
+from typing import List, Dict, Any, Optional
+from bson import ObjectId
 from .connection import get_db
 
-
-def create_lead(broker_id: str, enquiry_id: str) -> str:
-    """Create a lead record referencing an enquiry (lead_status='new' by default — database.md §3.5).
-    Returns the new lead _id as string.
-    TODO: db['leads'].insert_one({'broker_id': ..., 'enquiry_id': ..., 'lead_status': 'new', 'updated_at': ...})
-    """
-    pass
-
-
-def get_leads_for_broker(broker_id: str) -> list:
-    """Return all leads for a broker — own leads only (FR-7).
-    TODO: db['leads'].find({'broker_id': ObjectId(broker_id)})
-    """
-    pass
+VALID_STATUSES = {"new", "contacted", "converted", "lost"}
+ALLOWED_TRANSITIONS = {
+    "new": {"contacted", "lost"},
+    "contacted": {"converted", "lost"},
+    "converted": set(),
+    "lost": set()
+}
 
 
-def update_lead_status(lead_id: str, broker_id: str, lead_status: str) -> None:
-    """Update lead_status. Verify broker_id ownership before update (FR-7).
-    TODO: db['leads'].update_one({'_id': ObjectId(lead_id), 'broker_id': ObjectId(broker_id)}, {'$set': {'lead_status': ..., 'updated_at': ...}})
-    """
-    pass
+def _serialize(doc: Dict[str, Any]) -> Dict[str, Any]:
+    if not doc:
+        return doc
+    doc = dict(doc)
+    doc["_id"] = str(doc["_id"])
+    doc["broker_id"] = str(doc["broker_id"])
+    if "listing_id" in doc and doc["listing_id"]:
+        doc["listing_id"] = str(doc["listing_id"])
+    if "enquiry_id" in doc and doc["enquiry_id"]:
+        doc["enquiry_id"] = str(doc["enquiry_id"])
+    return doc
+
+
+def create_lead(lead_data: dict) -> Dict[str, Any]:
+    """Create a new lead assigned to a broker."""
+    db = get_db()
+    now = datetime.now(timezone.utc)
+    
+    doc = {
+        "broker_id": ObjectId(lead_data["broker_id"]),
+        "enquiry_id": ObjectId(lead_data["enquiry_id"]) if lead_data.get("enquiry_id") else None,
+        "listing_id": ObjectId(lead_data["listing_id"]) if lead_data.get("listing_id") else None,
+        "seeker_name": lead_data.get("seeker_name", "Anonymous Seeker"),
+        "seeker_phone": lead_data.get("seeker_phone", ""),
+        "seeker_email": lead_data.get("seeker_email", ""),
+        "lead_status": "new",
+        "created_at": now,
+        "updated_at": now
+    }
+    
+    result = db["leads"].insert_one(doc)
+    doc["_id"] = result.inserted_id
+    return _serialize(doc)
+
+
+def get_broker_leads(broker_id: str) -> List[Dict[str, Any]]:
+    """Fetch all leads assigned to a specific broker."""
+    db = get_db()
+    try:
+        b_oid = ObjectId(broker_id)
+    except Exception:
+        return []
+
+    cursor = db["leads"].find({"broker_id": b_oid}).sort("created_at", -1)
+    return [_serialize(doc) for doc in cursor]
+
+
+def get_lead_by_id(lead_id: str) -> Optional[Dict[str, Any]]:
+    """Fetch a single lead by ID."""
+    db = get_db()
+    try:
+        l_oid = ObjectId(lead_id)
+    except Exception:
+        return None
+
+    doc = db["leads"].find_one({"_id": l_oid})
+    return _serialize(doc) if doc else None
+
+
+def update_lead_status(lead_id: str, broker_id: str, new_status: str) -> bool:
+    """Update lead status enforcing valid status transition chain."""
+    if new_status not in VALID_STATUSES:
+        raise ValueError(f"Invalid lead_status: {new_status}")
+
+    db = get_db()
+    try:
+        l_oid = ObjectId(lead_id)
+        b_oid = ObjectId(broker_id)
+    except Exception:
+        return False
+
+    existing = db["leads"].find_one({"_id": l_oid, "broker_id": b_oid})
+    if not existing:
+        return False
+
+    current_status = existing.get("lead_status", "new")
+    if current_status != new_status:
+        allowed = ALLOWED_TRANSITIONS.get(current_status, set())
+        if new_status not in allowed:
+            raise ValueError(f"Cannot transition lead from '{current_status}' to '{new_status}'.")
+
+    now = datetime.now(timezone.utc)
+    result = db["leads"].update_one(
+        {"_id": l_oid, "broker_id": b_oid},
+        {"$set": {"lead_status": new_status, "updated_at": now}}
+    )
+    return result.modified_count > 0

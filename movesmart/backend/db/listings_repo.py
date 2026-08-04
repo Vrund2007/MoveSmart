@@ -3,71 +3,170 @@
 SINGLE SOURCE OF TRUTH for status=approved filter (FR-3, Architecture.md §3).
 Every browse/search/bulk-search query that should return only approved listings MUST call
 get_approved_listings() from this module — NOT re-implement the filter inline.
-This is the single point where FR-3 is enforced so it cannot drift between features.
 """
+from datetime import datetime, timezone
+from typing import Optional, List, Dict, Any
+from bson import ObjectId
 from .connection import get_db
-from typing import Optional
 
 
-def get_approved_listings(filters: Optional[dict] = None) -> list:
+def _serialize(doc: Dict[str, Any]) -> Dict[str, Any]:
+    """Helper to convert BSON ObjectId and datetime fields to JSON-serializable types."""
+    if not doc:
+        return doc
+    doc = dict(doc)
+    if "_id" in doc:
+        doc["_id"] = str(doc["_id"])
+    if "owner_id" in doc and doc["owner_id"]:
+        doc["owner_id"] = str(doc["owner_id"])
+    if "submitted_by_broker_id" in doc and doc["submitted_by_broker_id"]:
+        doc["submitted_by_broker_id"] = str(doc["submitted_by_broker_id"])
+    return doc
+
+
+def get_approved_listings(filters: Optional[dict] = None) -> List[Dict[str, Any]]:
     """Return listings with status='approved', optionally filtered.
     This function is the single enforcement point for FR-3.
 
     Args:
         filters: optional dict with keys: locality, bhk, deal_type, max_price, min_price.
-
-    Returns:
-        List of approved listing dicts.
-
-    TODO: build query = {'status': 'approved'}; merge with filters
-    TODO: db['listings'].find(query)
     """
-    pass
+    db = get_db()
+    query: Dict[str, Any] = {"status": "approved"}
+    
+    if filters:
+        if filters.get("locality"):
+            query["locality"] = filters["locality"]
+        if filters.get("bhk"):
+            query["bhk"] = int(filters["bhk"])
+        if filters.get("deal_type"):
+            query["deal_type"] = filters["deal_type"]
+        
+        price_query = {}
+        if filters.get("min_price") is not None:
+            price_query["$gte"] = float(filters["min_price"])
+        if filters.get("max_price") is not None:
+            price_query["$lte"] = float(filters["max_price"])
+        if price_query:
+            query["price"] = price_query
+
+    cursor = db["listings"].find(query).sort("created_at", -1)
+    return [_serialize(doc) for doc in cursor]
 
 
-def get_listing_by_id(listing_id: str, include_non_approved: bool = False) -> Optional[dict]:
-    """Fetch a single listing by ID.
-    include_non_approved=True only for owner/admin viewing own/any listing.
-    TODO: add status filter unless include_non_approved is True
-    """
-    pass
+def get_owner_listings(owner_id: str) -> List[Dict[str, Any]]:
+    """Fetch all listings belonging to a specific owner_id (regardless of status)."""
+    db = get_db()
+    cursor = db["listings"].find({"owner_id": str(owner_id)}).sort("updated_at", -1)
+    return [_serialize(doc) for doc in cursor]
+
+
+def get_listings_by_broker(broker_id: str) -> List[Dict[str, Any]]:
+    """Fetch all listings submitted by a specific broker_id (regardless of status)."""
+    db = get_db()
+    cursor = db["listings"].find({"submitted_by_broker_id": str(broker_id)}).sort("updated_at", -1)
+    return [_serialize(doc) for doc in cursor]
+
+
+def get_listing_by_id(listing_id: str, include_non_approved: bool = False) -> Optional[Dict[str, Any]]:
+    """Fetch a single listing by ID."""
+    db = get_db()
+    try:
+        oid = ObjectId(listing_id)
+    except Exception:
+        return None
+
+    query: Dict[str, Any] = {"_id": oid}
+    if not include_non_approved:
+        query["status"] = "approved"
+
+    doc = db["listings"].find_one(query)
+    return _serialize(doc) if doc else None
 
 
 def create_listing(listing_data: dict) -> str:
     """Create a new listing document.
-    NOTE: listing_data must already have status='pending_review' set by the caller (FR-3).
-    Seed listings use status='approved' — only data_ingestion scripts may set 'approved' at write time (FR-6).
     Returns the new listing's _id as a string.
-    TODO: db['listings'].insert_one(listing_data) → return str(result.inserted_id)
     """
-    pass
+    db = get_db()
+    now = datetime.now(timezone.utc)
+    doc = dict(listing_data)
+    doc["created_at"] = now
+    doc["updated_at"] = now
+    doc["status"] = "pending_review"  # Server-enforced (FR-3)
+    doc.setdefault("rejection_reason", None)
+    doc.setdefault("source", "platform")
+    doc.setdefault("view_count", 0)
+    doc.setdefault("enquiry_count", 0)
+    doc.setdefault("verification_flags", {})
+    doc.setdefault("predicted_price_range", {})
+    doc.setdefault("images", [])
+    doc.setdefault("amenities", [])
+    doc.setdefault("coordinates", [72.5714, 23.0225])
+    
+    result = db["listings"].insert_one(doc)
+    return str(result.inserted_id)
 
 
-def update_listing(listing_id: str, update_data: dict) -> None:
-    """Update a listing document. Does NOT change status — status transitions are in set_listing_status().
-    TODO: db['listings'].update_one({'_id': ObjectId(listing_id)}, {'$set': {**update_data, 'updated_at': ...}})
-    """
-    pass
+def update_listing(listing_id: str, update_data: dict) -> Dict[str, Any]:
+    """Update a listing document."""
+    db = get_db()
+    try:
+        oid = ObjectId(listing_id)
+    except Exception:
+        return {}
+
+    doc = dict(update_data)
+    doc["updated_at"] = datetime.now(timezone.utc)
+    db["listings"].update_one({"_id": oid}, {"$set": doc})
+    return get_listing_by_id(listing_id, include_non_approved=True)
+
+
+def resubmit_listing(listing_id: str, update_data: dict) -> Dict[str, Any]:
+    """Update a listing, reset status to 'pending_review', and clear rejection_reason."""
+    db = get_db()
+    try:
+        oid = ObjectId(listing_id)
+    except Exception:
+        return {}
+
+    doc = dict(update_data)
+    doc["status"] = "pending_review"
+    doc["rejection_reason"] = None
+    doc["updated_at"] = datetime.now(timezone.utc)
+    db["listings"].update_one({"_id": oid}, {"$set": doc})
+    return get_listing_by_id(listing_id, include_non_approved=True)
 
 
 def set_listing_status(listing_id: str, status: str, rejection_reason: Optional[str] = None) -> None:
-    """Set listing status — only called by admin_review views (FR-4).
-    On rejection: sets rejection_reason (FR-5).
-    On approval: clears rejection_reason.
-    TODO: build update_doc; db['listings'].update_one(...)
-    """
-    pass
+    """Set listing status — called by admin_review views (FR-4, FR-5)."""
+    db = get_db()
+    try:
+        oid = ObjectId(listing_id)
+    except Exception:
+        return
+
+    update_fields = {
+        "status": status,
+        "rejection_reason": rejection_reason if status == "rejected" else None,
+        "updated_at": datetime.now(timezone.utc)
+    }
+    db["listings"].update_one({"_id": oid}, {"$set": update_fields})
 
 
-def delete_listing(listing_id: str) -> None:
-    """Delete a listing by ID.
-    TODO: db['listings'].delete_one({'_id': ObjectId(listing_id)})
-    """
-    pass
+def delete_listing(listing_id: str) -> bool:
+    """Delete a listing by ID."""
+    db = get_db()
+    try:
+        oid = ObjectId(listing_id)
+    except Exception:
+        return False
+    res = db["listings"].delete_one({"_id": oid})
+    return res.deleted_count > 0
 
 
-def get_listings_by_status(status: str) -> list:
-    """Fetch all listings with a given status (used by Admin review queue).
-    TODO: db['listings'].find({'status': status})
-    """
-    pass
+def get_listings_by_status(status: str) -> List[Dict[str, Any]]:
+    """Fetch all listings with a given status (used by Admin review queue)."""
+    db = get_db()
+    cursor = db["listings"].find({"status": status}).sort("created_at", -1)
+    return [_serialize(doc) for doc in cursor]

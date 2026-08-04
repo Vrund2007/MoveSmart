@@ -1,12 +1,56 @@
-// api/listings.js — API client for listings endpoints (Architecture.md §8: GET/POST/PUT/DELETE /api/listings)
-import axios from 'axios';
+import api from '../lib/api';
 
-// TODO: implement getListings(filters) → GET /api/listings (always returns status=approved for non-owner callers, FR-3)
-// TODO: implement getListing(id) → GET /api/listings/:id
-// TODO: implement createListing(data) → POST /api/listings (Owner/Broker; status: pending_review set server-side)
-// TODO: implement updateListing(id, data) → PUT /api/listings/:id (own listings only, FR-7)
-// TODO: implement deleteListing(id) → DELETE /api/listings/:id
-// TODO: implement getListingAnalytics(id) → GET /api/listings/:id/analytics (Owner/Broker only)
-// TODO: implement saveListings(listingId) → POST /api/saved-listings
-// TODO: implement getSavedListings() → GET /api/saved-listings
-// TODO: implement unsaveListing(id) → DELETE /api/saved-listings/:id
+/**
+ * Listings API Client Wrappers
+ */
+export const getListings = async (params = {}) => {
+  const response = await api.get('/listings', { params });
+  return response.data;
+};
+
+export const getMyListings = async () => {
+  const response = await api.get('/listings/my');
+  return response.data;
+};
+
+export const getListingById = async (id) => {
+  const response = await api.get(`/listings/${id}`);
+  return response.data;
+};
+
+export const getListing = getListingById;
+
+export const createListing = async (listingData) => {
+  const response = await api.post('/listings', listingData);
+  return response.data;
+};
+
+export const updateListing = async (id, listingData) => {
+  const response = await api.put(`/listings/${id}`, listingData);
+  return response.data;
+};
+
+export const deleteListing = async (id) => {
+  const response = await api.delete(`/listings/${id}`);
+  return response.data;
+};
+
+export const getListingAnalytics = async (id) => {
+  const response = await api.get(`/listings/${id}/analytics`);
+  return response.data;
+};
+
+export const saveListing = async (listingId) => {
+  const response = await api.post('/saved-listings', { listing_id: listingId });
+  return response.data;
+};
+
+export const getSavedListings = async () => {
+  const response = await api.get('/saved-listings');
+  return response.data;
+};
+
+export const removeSavedListing = async (savedId) => {
+  const response = await api.delete(`/saved-listings/${savedId}`);
+  return response.data;
+};

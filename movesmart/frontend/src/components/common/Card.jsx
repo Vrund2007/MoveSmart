@@ -1,7 +1,21 @@
-// components/common/Card.jsx — Surface-colored card container (Design.md §2: surface #FFFFFF on background #EEEEEE)
-// TODO: implement children, className, onClick props
-// TODO: apply border-border, rounded, shadow per Design.md §4 supporting tokens
-function Card() {
-  return <div>Card — TODO</div>;
-}
+import React from 'react';
+
+/**
+ * Reusable Card Component.
+ * Surface-colored (#FFFFFF) container on top of background (#EEEEEE).
+ */
+const Card = ({ children, className = '', onClick, ...props }) => {
+  return (
+    <div
+      onClick={onClick}
+      className={`bg-surface border border-border rounded-lg shadow-sm p-5 transition-shadow hover:shadow-md ${
+        onClick ? 'cursor-pointer' : ''
+      } ${className}`}
+      {...props}
+    >
+      {children}
+    </div>
+  );
+};
+
 export default Card;

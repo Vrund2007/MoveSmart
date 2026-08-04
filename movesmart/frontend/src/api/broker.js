@@ -1,7 +1,29 @@
-// api/broker.js — API client for broker leads and commission endpoints (new v2.0, Architecture.md §8)
-import axios from 'axios';
+import api from '../lib/api';
 
-// TODO: implement getLeads() → GET /api/leads?broker=me
-// TODO: implement updateLeadStatus(leadId, status) → PATCH /api/leads/:id (status: new|contacted|converted|lost)
-// TODO: implement createCommission(data) → POST /api/commissions
-// TODO: implement getCommissions() → GET /api/commissions?broker=me (own records only, never visible to other roles — FR-7)
+/**
+ * Broker API Client Wrappers
+ */
+export const getBrokerListings = async () => {
+  const response = await api.get('/broker/listings');
+  return response.data;
+};
+
+export const createBrokerListing = async (listingData) => {
+  const response = await api.post('/broker/listings', listingData);
+  return response.data;
+};
+
+export const updateBrokerListing = async (id, listingData) => {
+  const response = await api.put(`/broker/listings/${id}`, listingData);
+  return response.data;
+};
+
+export const deleteBrokerListing = async (id) => {
+  const response = await api.delete(`/broker/listings/${id}`);
+  return response.data;
+};
+
+export const matchClient = async (clientPayload) => {
+  const response = await api.post('/broker/client-match', clientPayload);
+  return response.data;
+};

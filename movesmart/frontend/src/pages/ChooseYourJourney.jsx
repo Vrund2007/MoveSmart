@@ -38,33 +38,24 @@ const ROLES = [
 ];
 
 export default function ChooseYourJourney() {
-  const { setRole, setUser, user } = useContext(AuthContext);
+  const { setRole } = useContext(AuthContext);
   const [selected, setSelected] = useState('find_accommodation');
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
   const navigate = useNavigate();
 
   const handleConfirm = async () => {
     setSubmitting(true);
+    setError('');
     try {
       const res = await setRole(selected);
-      if (!res || !res.success) {
-        // Fallback for frontend-only presentation
-        const updatedUser = { ...user, role: selected };
-        localStorage.setItem('user', JSON.stringify(updatedUser));
-        setUser(updatedUser);
-      }
-      // Accommodation seekers go through the onboarding wizard; other roles go directly to dashboards
-      if (selected === 'find_accommodation') {
+      if (res && res.success) {
         navigate('/onboarding');
-      } else if (selected === 'property_owner') {
-        navigate('/owner');
-      } else if (selected === 'broker') {
-        navigate('/broker');
-      } else if (selected === 'company_hr') {
-        navigate('/company');
+      } else {
+        setError(res?.error || 'Failed to set role. Role may already be assigned.');
       }
     } catch (err) {
-      console.error(err);
+      setError('An unexpected error occurred while assigning role.');
     } finally {
       setSubmitting(false);
     }
@@ -138,6 +129,12 @@ export default function ChooseYourJourney() {
             );
           })}
         </div>
+
+        {error && (
+          <div className="mb-4 text-center text-xs text-error font-medium bg-red-50 p-2.5 rounded border border-red-200">
+            {error}
+          </div>
+        )}
 
         <div className="flex justify-center mt-6">
           <button

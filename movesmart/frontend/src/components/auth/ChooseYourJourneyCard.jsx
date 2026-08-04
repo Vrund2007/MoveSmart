@@ -1,9 +1,21 @@
-// components/auth/ChooseYourJourneyCard.jsx — 4-role selection card for "Choose Your Journey" screen (PRD §6, Architecture.md §4.0)
-// Renders one card per public role: find_accommodation, property_owner, broker, company_hr
-// Admin is never shown here — enforced both in UI and server-side (FR-2)
-// TODO: accept role, title, description, icon, onClick props
-// TODO: highlight selected card with primary (#00ADB5) per Design.md §2.1
-function ChooseYourJourneyCard() {
-  return <div>ChooseYourJourneyCard — TODO</div>;
-}
+import React from 'react';
+import Card from '../common/Card';
+
+/**
+ * ChooseYourJourneyCard Component — Select role card.
+ */
+const ChooseYourJourneyCard = ({ role, title, description, selected = false, onClick }) => {
+  return (
+    <Card
+      onClick={onClick}
+      className={`p-6 transition-all border-2 ${
+        selected ? 'border-primary bg-teal-50/50 shadow-md' : 'border-border hover:border-gray-400'
+      }`}
+    >
+      <h3 className="font-bold text-lg text-text-primary mb-1">{title}</h3>
+      <p className="text-xs text-text-secondary">{description}</p>
+    </Card>
+  );
+};
+
 export default ChooseYourJourneyCard;

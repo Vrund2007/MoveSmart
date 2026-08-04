@@ -1,9 +1,26 @@
-// components/company/BudgetTracker.jsx — Real-time budget tracking for a relocation batch (new v2.0, PRD §7.4, Architecture.md §4.4)
-// budget-used is computed server-side (sum of allocations[].cost) — not stored, to avoid drift (database.md §3.7)
-// Apply tabular-nums to all budget figures (Design.md §3.4)
-// TODO: accept budget, budgetUsed, budgetRemaining props (fetched from GET /api/company/relocation-batches/:id)
-// TODO: show progress bar and remaining amount
-function BudgetTracker() {
-  return <div>BudgetTracker — TODO</div>;
-}
+import React from 'react';
+import Card from '../common/Card';
+
+/**
+ * BudgetTracker Component — Company HR Relocation budget stats.
+ */
+const BudgetTracker = ({ budget = 0, budgetUsed = 0, budgetRemaining = 0 }) => {
+  return (
+    <Card className="grid grid-cols-3 gap-4 text-center">
+      <div>
+        <span className="text-xs text-text-secondary block">Total Budget</span>
+        <span className="text-lg font-bold text-text-primary tabular-nums">₹{budget.toLocaleString()}</span>
+      </div>
+      <div>
+        <span className="text-xs text-text-secondary block">Allocated</span>
+        <span className="text-lg font-bold text-primary tabular-nums">₹{budgetUsed.toLocaleString()}</span>
+      </div>
+      <div>
+        <span className="text-xs text-text-secondary block">Remaining</span>
+        <span className="text-lg font-bold text-success tabular-nums">₹{budgetRemaining.toLocaleString()}</span>
+      </div>
+    </Card>
+  );
+};
+
 export default BudgetTracker;

@@ -1,8 +1,26 @@
-// components/onboarding/BrokerOnboarding.jsx — Onboarding form for Broker/Agent role (PRD §7.3, Architecture.md §4.3)
-// Collects: contact phone, agency name (optional), prompts to add owners/listings they manage
-// TODO: implement form fields for broker profile
-// TODO: on success, route to /broker dashboard
-function BrokerOnboarding() {
-  return <div>BrokerOnboarding — TODO</div>;
-}
+import React, { useState } from 'react';
+import Input from '../common/Input';
+import Button from '../common/Button';
+
+/**
+ * BrokerOnboarding Component.
+ */
+const BrokerOnboarding = ({ onSubmit }) => {
+  const [contactPhone, setContactPhone] = useState('');
+  const [agencyName, setAgencyName] = useState('');
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSubmit({ contact_phone: contactPhone, agency_name: agencyName });
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4 max-w-md w-full">
+      <Input label="Contact Phone" required value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} placeholder="+91 98765 43210" />
+      <Input label="Agency Name" required value={agencyName} onChange={(e) => setAgencyName(e.target.value)} placeholder="e.g. Apex Realty" />
+      <Button type="submit" variant="primary" className="mt-2">Complete Profile</Button>
+    </form>
+  );
+};
+
 export default BrokerOnboarding;

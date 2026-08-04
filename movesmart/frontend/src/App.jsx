@@ -1,4 +1,4 @@
-// App.jsx — Router shell with AuthProvider, PrivateRoute, and Role-Gated Routes
+// App.jsx — Router shell with AuthProvider, ProtectedRoute, and Role-Gated Routes
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -17,6 +17,7 @@ import OwnerDashboard from './pages/OwnerDashboard';
 import BrokerDashboard from './pages/BrokerDashboard';
 import CompanyDashboard from './pages/CompanyDashboard';
 import AdminReviewQueue from './pages/AdminReviewQueue';
+import LoadingSpinner from './components/common/LoadingSpinner';
 
 // Helper to get default dashboard path for a role
 export function getRoleDashboard(role) {
@@ -30,21 +31,35 @@ export function getRoleDashboard(role) {
   }
 }
 
-// Protected Route wrapper
+// Protected Route wrapper enforcing authentication, role selection, and onboarding completion
 function ProtectedRoute({ children, allowedRoles }) {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, loading } = useAuth();
   const location = useLocation();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <LoadingSpinner size="lg" message="Restoring session..." />
+      </div>
+    );
+  }
 
   if (!isAuthenticated || !user) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  // If user hasn't set their role yet (except on choose-your-journey)
+  // 1. If user hasn't selected a role yet
   if (!user.role && location.pathname !== '/choose-your-journey') {
     return <Navigate to="/choose-your-journey" replace />;
   }
 
-  // Check role authorization if specified
+  // 2. If user selected role but hasn't completed role_profile
+  const isProfileEmpty = !user.role_profile || Object.keys(user.role_profile).length === 0;
+  if (user.role && user.role !== 'admin' && isProfileEmpty && location.pathname !== '/onboarding' && location.pathname !== '/choose-your-journey') {
+    return <Navigate to="/onboarding" replace />;
+  }
+
+  // 3. Check role authorization if specified
   if (allowedRoles && allowedRoles.length > 0) {
     if (!allowedRoles.includes(user.role)) {
       return <Navigate to={getRoleDashboard(user.role)} replace />;
@@ -65,7 +80,7 @@ function App() {
             <Route path="/signup" element={<Signup />} />
             <Route path="/login" element={<Login />} />
 
-            {/* Role Assignment Flow */}
+            {/* Role Assignment & Onboarding Flow */}
             <Route
               path="/choose-your-journey"
               element={

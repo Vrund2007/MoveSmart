@@ -1,9 +1,59 @@
-// api/company.js — API client for Company/HR relocation batch endpoints (new v2.0, Architecture.md §8)
-import axios from 'axios';
+import api from '../lib/api';
 
-// TODO: implement createCompanyProfile(data) → POST /api/company/profile
-// TODO: implement createBatch(data) → POST /api/company/relocation-batches
-// TODO: implement getBatch(batchId) → GET /api/company/relocation-batches/:id (includes budget-used computed server-side)
-// TODO: implement searchBatch(batchId, params) → POST /api/company/relocation-batches/:id/search
-// TODO: implement allocateBatch(batchId, allocations) → POST /api/company/relocation-batches/:id/allocate
-// TODO: implement getBatchReport(batchId) → GET /api/company/relocation-batches/:id/report (JSON/CSV export)
+/**
+ * Company HR API Client Wrappers
+ */
+export const createCompanyProfile = async (profileData) => {
+  const response = await api.post('/company/profile', profileData);
+  return response.data;
+};
+
+export const getRelocationBatches = async () => {
+  const response = await api.get('/company/relocation-batches');
+  return response.data;
+};
+
+export const createRelocationBatch = async (batchData) => {
+  const response = await api.post('/company/relocation-batches', batchData);
+  return response.data;
+};
+
+export const getRelocationBatchDetail = async (batchId) => {
+  const response = await api.get(`/company/relocation-batches/${batchId}`);
+  return response.data;
+};
+
+export const updateRelocationBatch = async (batchId, updateData) => {
+  const response = await api.put(`/company/relocation-batches/${batchId}`, updateData);
+  return response.data;
+};
+
+export const deleteRelocationBatch = async (batchId) => {
+  const response = await api.delete(`/company/relocation-batches/${batchId}`);
+  return response.data;
+};
+
+export const addEmployeeToBatch = async (batchId, employeeData) => {
+  const response = await api.post(`/company/relocation-batches/${batchId}/employees`, employeeData);
+  return response.data;
+};
+
+export const removeEmployeeFromBatch = async (batchId, employeeId) => {
+  const response = await api.delete(`/company/relocation-batches/${batchId}/employees/${employeeId}`);
+  return response.data;
+};
+
+export const searchBatchHousing = async (batchId) => {
+  const response = await api.post(`/company/relocation-batches/${batchId}/search`);
+  return response.data;
+};
+
+export const allocateEmployeeToListing = async (batchId, allocationData) => {
+  const response = await api.post(`/company/relocation-batches/${batchId}/allocate`, allocationData);
+  return response.data;
+};
+
+export const getBatchReport = async (batchId) => {
+  const response = await api.get(`/company/relocation-batches/${batchId}/report`);
+  return response.data;
+};

@@ -233,13 +233,7 @@ export default function Signup() {
     if (res.success) {
       navigate('/choose-your-journey');
     } else {
-      // Fallback for frontend-only demo flow to proceed to Choose Your Journey
-      const mockUser = { id: 'usr-mock-' + Math.floor(Math.random() * 1000), name, email, role: null };
-      localStorage.setItem('user', JSON.stringify(mockUser));
-      localStorage.setItem('access_token', 'mock-access-token');
-      localStorage.setItem('refresh_token', 'mock-refresh-token');
-      setUser(mockUser);
-      navigate('/choose-your-journey');
+      setError(res.error || 'Registration failed. Please check your inputs.');
     }
   };
 

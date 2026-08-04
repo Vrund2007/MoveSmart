@@ -1,9 +1,21 @@
-// components/commute/CommutePanel.jsx — Commute estimation results panel (Architecture.md §4.1 Layer 3, PRD §7.1)
-// Displays commute time/cost by mode (driving, transit, walking, auto) from locality to office/college
-// Results labeled as estimates per Rules.md §3; Warning color used for stale data notice per Design.md §2.1
-// TODO: accept locality, destination, commute data props (or fetch internally)
-// TODO: display time per mode, cost if available, "data temporarily unavailable" fallback (Rules.md §4)
-function CommutePanel() {
-  return <div>CommutePanel — TODO</div>;
-}
+import React from 'react';
+import Card from '../common/Card';
+
+/**
+ * CommutePanel Component — displays travel duration and distance insights.
+ */
+const CommutePanel = ({ durationMinutes, distanceKm, mode = 'driving' }) => {
+  return (
+    <Card className="flex justify-between items-center bg-teal-50 border-primary">
+      <div>
+        <span className="text-xs text-text-secondary capitalize block">Commute by {mode}</span>
+        <span className="text-2xl font-black text-primary tabular-nums">{durationMinutes} min</span>
+      </div>
+      {distanceKm && (
+        <span className="text-sm font-semibold text-text-secondary tabular-nums">{distanceKm} km</span>
+      )}
+    </Card>
+  );
+};
+
 export default CommutePanel;

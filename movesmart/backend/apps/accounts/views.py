@@ -1,26 +1,14 @@
 """apps/accounts/views.py — DRF views for auth, registration, role assignment (PRD §6, Architecture.md §4.0, FR-1, FR-2)"""
 from rest_framework.views import APIView
-from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
-from django.contrib.auth.hashers import make_password, check_password
-import pymongo.errors
 
-from db import users_repo
+from apps.common.responses import api_response
 from .serializers import (
     RegisterSerializer, LoginSerializer, RoleSerializer, PROFILE_SERIALIZER_MAP
 )
-
-
-def _tokens_for_user(user_id: str) -> dict:
-    """Issue a simplejwt access + refresh token pair for the given MongoDB user_id."""
-    refresh = RefreshToken()
-    refresh['user_id'] = user_id   # custom claim — MongoJWTAuthentication reads this
-    return {
-        'access':  str(refresh.access_token),
-        'refresh': str(refresh),
-    }
+from . import services, repository
 
 
 class RegisterView(APIView):
@@ -30,24 +18,30 @@ class RegisterView(APIView):
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
         if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return api_response(
+                errors=serializer.errors,
+                message="Validation error",
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
 
         data = serializer.validated_data
-        password_hash = make_password(data['password'])
-
         try:
-            user = users_repo.create_user(
+            user_doc, tokens = services.register_user(
                 email=data['email'],
-                password_hash=password_hash,
+                password=data['password']
             )
-        except pymongo.errors.DuplicateKeyError:
-            return Response(
-                {'email': 'An account with this email already exists.'},
-                status=status.HTTP_409_CONFLICT
+        except services.DuplicateEmailError as exc:
+            return api_response(
+                errors={'email': str(exc)},
+                message=str(exc),
+                status_code=status.HTTP_409_CONFLICT
             )
 
-        tokens = _tokens_for_user(user['_id'])
-        return Response({'user': user, **tokens}, status=status.HTTP_201_CREATED)
+        return api_response(
+            data={'user': user_doc, **tokens},
+            message="Account registered successfully.",
+            status_code=status.HTTP_201_CREATED
+        )
 
 
 class LoginView(APIView):
@@ -57,23 +51,30 @@ class LoginView(APIView):
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
         if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-        data = serializer.validated_data
-        user_doc = users_repo.get_user_by_email(data['email'])
-
-        if not user_doc or not check_password(data['password'], user_doc.get('password_hash', '')):
-            return Response(
-                {'detail': 'Invalid email or password.'},
-                status=status.HTTP_401_UNAUTHORIZED
+            return api_response(
+                errors=serializer.errors,
+                message="Validation error",
+                status_code=status.HTTP_400_BAD_REQUEST
             )
 
-        # Build safe user dict (strip password_hash before sending)
-        safe_user = {k: v for k, v in user_doc.items() if k != 'password_hash'}
-        safe_user['_id'] = str(safe_user['_id'])
+        data = serializer.validated_data
+        try:
+            safe_user, tokens = services.authenticate_user(
+                email=data['email'],
+                password=data['password']
+            )
+        except services.InvalidCredentialsError as exc:
+            return api_response(
+                errors={'detail': str(exc)},
+                message=str(exc),
+                status_code=status.HTTP_401_UNAUTHORIZED
+            )
 
-        tokens = _tokens_for_user(safe_user['_id'])
-        return Response({'user': safe_user, **tokens}, status=status.HTTP_200_OK)
+        return api_response(
+            data={'user': safe_user, **tokens},
+            message="Authenticated successfully.",
+            status_code=status.HTTP_200_OK
+        )
 
 
 class RefreshView(APIView):
@@ -83,12 +84,34 @@ class RefreshView(APIView):
     def post(self, request):
         refresh_token = request.data.get('refresh')
         if not refresh_token:
-            return Response({'detail': 'refresh token required'}, status=status.HTTP_400_BAD_REQUEST)
+            return api_response(
+                message="Refresh token is required.",
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
         try:
             refresh = RefreshToken(refresh_token)
-            return Response({'access': str(refresh.access_token)}, status=status.HTTP_200_OK)
+            return api_response(
+                data={'access': str(refresh.access_token)},
+                message="Access token refreshed successfully.",
+                status_code=status.HTTP_200_OK
+            )
         except Exception as exc:
-            return Response({'detail': str(exc)}, status=status.HTTP_401_UNAUTHORIZED)
+            return api_response(
+                errors={'detail': str(exc)},
+                message="Invalid or expired refresh token.",
+                status_code=status.HTTP_401_UNAUTHORIZED
+            )
+
+
+class LogoutView(APIView):
+    """POST /api/auth/logout — clean client token logout."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        return api_response(
+            message="Logout successful. Tokens cleared from client.",
+            status_code=status.HTTP_200_OK
+        )
 
 
 class SetRoleView(APIView):
@@ -98,17 +121,29 @@ class SetRoleView(APIView):
     def patch(self, request):
         serializer = RoleSerializer(data=request.data)
         if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return api_response(
+                errors=serializer.errors,
+                message="Validation error",
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
 
         role = serializer.validated_data['role']
-        user_id = request.user.id   # set by MongoJWTAuthentication
+        user_id = request.user.id
 
         try:
-            updated_user = users_repo.set_role(user_id, role)
-        except ValueError as exc:
-            return Response({'detail': str(exc)}, status=status.HTTP_409_CONFLICT)
+            updated_user = services.assign_role(user_id=user_id, role=role)
+        except services.RoleImmutableError as exc:
+            return api_response(
+                errors={'detail': str(exc)},
+                message=str(exc),
+                status_code=status.HTTP_409_CONFLICT
+            )
 
-        return Response({'user': updated_user}, status=status.HTTP_200_OK)
+        return api_response(
+            data={'user': updated_user},
+            message="Role assigned successfully.",
+            status_code=status.HTTP_200_OK
+        )
 
 
 class ProfileView(APIView):
@@ -118,25 +153,46 @@ class ProfileView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        user = users_repo.get_user_by_id(request.user.id)
+        user = repository.get_user_by_id(request.user.id)
         if not user:
-            return Response({'detail': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
-        return Response({'user': user}, status=status.HTTP_200_OK)
+            return api_response(
+                message="User not found.",
+                status_code=status.HTTP_404_NOT_FOUND
+            )
+        return api_response(
+            data={'user': user},
+            message="User profile retrieved successfully."
+        )
 
     def put(self, request):
         user_role = request.user.role
+        if not user_role:
+            return api_response(
+                message="Role must be selected before updating role profile.",
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+
         SerializerClass = PROFILE_SERIALIZER_MAP.get(user_role)
         if not SerializerClass:
-            return Response(
-                {'detail': f'No profile fields defined for role \'{user_role}\'.'},
-                status=status.HTTP_400_BAD_REQUEST
+            return api_response(
+                message=f"No profile fields defined for role '{user_role}'.",
+                status_code=status.HTTP_400_BAD_REQUEST
             )
 
         serializer = SerializerClass(data=request.data)
         if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return api_response(
+                errors=serializer.errors,
+                message="Validation error",
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
 
-        updated_user = users_repo.update_role_profile(
-            request.user.id, serializer.validated_data
+        updated_user = services.update_profile(
+            user_id=request.user.id,
+            profile_data=serializer.validated_data
         )
-        return Response({'user': updated_user}, status=status.HTTP_200_OK)
+
+        return api_response(
+            data={'user': updated_user},
+            message="Role profile updated successfully."
+        )

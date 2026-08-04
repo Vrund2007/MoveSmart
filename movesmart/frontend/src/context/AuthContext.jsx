@@ -3,6 +3,7 @@
 // admin role is never set through the public flow (FR-2)
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import api from '../lib/api';
+import { getUserProfile, logoutUser } from '../api/auth';
 
 export const AuthContext = createContext(null);
 
@@ -11,7 +12,36 @@ export function AuthProvider({ children }) {
     const savedUser = localStorage.getItem('user');
     return savedUser ? JSON.parse(savedUser) : null;
   });
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  // Helper to extract response payload safely (handles api_response wrapped and direct formats)
+  const extractData = (res) => (res.data && res.data.data ? res.data.data : res.data);
+
+  // Restore user session on initial mount
+  useEffect(() => {
+    const initAuth = async () => {
+      const token = localStorage.getItem('access_token');
+      if (token) {
+        try {
+          const res = await getUserProfile();
+          const payload = extractData({ data: res });
+          if (payload && payload.user) {
+            setUser(payload.user);
+            localStorage.setItem('user', JSON.stringify(payload.user));
+          }
+        } catch (err) {
+          // Token invalid or expired — clear local storage
+          localStorage.removeItem('access_token');
+          localStorage.removeItem('refresh_token');
+          localStorage.removeItem('user');
+          setUser(null);
+        }
+      }
+      setLoading(false);
+    };
+
+    initAuth();
+  }, []);
 
   // Sync user state with localStorage
   useEffect(() => {
@@ -27,13 +57,15 @@ export function AuthProvider({ children }) {
     setLoading(true);
     try {
       const res = await api.post('/auth/login', { email, password });
-      const { user: userData, access, refresh } = res.data;
+      const payload = extractData(res);
+      const { user: userData, access, refresh } = payload;
       localStorage.setItem('access_token', access);
       localStorage.setItem('refresh_token', refresh);
       setUser(userData);
       return { success: true, user: userData };
     } catch (err) {
-      const msg = err.response?.data?.detail || err.response?.data?.email?.[0] || 'Login failed.';
+      const data = err.response?.data;
+      const msg = data?.message || data?.detail || data?.errors?.detail || 'Login failed.';
       return { success: false, error: msg };
     } finally {
       setLoading(false);
@@ -50,14 +82,16 @@ export function AuthProvider({ children }) {
         password,
         confirm_password: confirmPassword,
       });
-      const { user: userData, access, refresh } = res.data;
+      const payload = extractData(res);
+      const { user: userData, access, refresh } = payload;
       localStorage.setItem('access_token', access);
       localStorage.setItem('refresh_token', refresh);
       setUser(userData);
       return { success: true, user: userData };
     } catch (err) {
-      const errors = err.response?.data || {};
-      const msg = errors.detail || errors.email || errors.confirm_password || 'Registration failed.';
+      const data = err.response?.data;
+      const errors = data?.errors || data || {};
+      const msg = data?.message || errors.detail || errors.email || errors.confirm_password || 'Registration failed.';
       return { success: false, error: msg };
     } finally {
       setLoading(false);
@@ -69,27 +103,31 @@ export function AuthProvider({ children }) {
     setLoading(true);
     try {
       const res = await api.patch('/auth/role', { role });
-      const updatedUser = res.data.user;
+      const payload = extractData(res);
+      const updatedUser = payload.user;
       setUser(updatedUser);
       return { success: true, user: updatedUser };
     } catch (err) {
-      const msg = err.response?.data?.detail || err.response?.data?.role?.[0] || 'Failed to set role.';
+      const data = err.response?.data;
+      const msg = data?.message || data?.errors?.detail || data?.errors?.role?.[0] || 'Failed to set role.';
       return { success: false, error: msg };
     } finally {
       setLoading(false);
     }
   };
 
-  // Update Profile: PUT /api/auth/profile
+  // Update Profile: PUT /api/profile or /api/auth/profile
   const updateProfile = async (profileData) => {
     setLoading(true);
     try {
-      const res = await api.put('/auth/profile', profileData);
-      const updatedUser = res.data.user;
+      const res = await api.put('/profile', profileData);
+      const payload = extractData(res);
+      const updatedUser = payload.user;
       setUser(updatedUser);
       return { success: true, user: updatedUser };
     } catch (err) {
-      const msg = err.response?.data?.detail || 'Failed to update profile.';
+      const data = err.response?.data;
+      const msg = data?.message || data?.errors?.detail || 'Failed to update profile.';
       return { success: false, error: msg };
     } finally {
       setLoading(false);
@@ -97,11 +135,17 @@ export function AuthProvider({ children }) {
   };
 
   // Logout
-  const logout = () => {
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
-    localStorage.removeItem('user');
-    setUser(null);
+  const logout = async () => {
+    try {
+      await logoutUser();
+    } catch (err) {
+      // Ignore network errors on logout
+    } finally {
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      localStorage.removeItem('user');
+      setUser(null);
+    }
   };
 
   return (

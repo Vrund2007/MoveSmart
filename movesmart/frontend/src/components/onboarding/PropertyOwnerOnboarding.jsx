@@ -1,8 +1,26 @@
-// components/onboarding/PropertyOwnerOnboarding.jsx — Onboarding form for Property Owner role (PRD §7.2, Architecture.md §4.2)
-// Collects: contact phone, business name (optional), prompts to add first listing
-// TODO: implement form fields for contact info and optional business name
-// TODO: on success, route to /owner dashboard with prompt to create first listing
-function PropertyOwnerOnboarding() {
-  return <div>PropertyOwnerOnboarding — TODO</div>;
-}
+import React, { useState } from 'react';
+import Input from '../common/Input';
+import Button from '../common/Button';
+
+/**
+ * PropertyOwnerOnboarding Component.
+ */
+const PropertyOwnerOnboarding = ({ onSubmit }) => {
+  const [contactPhone, setContactPhone] = useState('');
+  const [businessName, setBusinessName] = useState('');
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSubmit({ contact_phone: contactPhone, business_name: businessName });
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4 max-w-md w-full">
+      <Input label="Contact Phone" required value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} placeholder="+91 98765 43210" />
+      <Input label="Business/Agency Name (Optional)" value={businessName} onChange={(e) => setBusinessName(e.target.value)} placeholder="e.g. Unique Properties" />
+      <Button type="submit" variant="primary" className="mt-2">Complete Profile</Button>
+    </form>
+  );
+};
+
 export default PropertyOwnerOnboarding;

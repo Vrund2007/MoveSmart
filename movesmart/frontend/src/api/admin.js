@@ -1,8 +1,22 @@
-// api/admin.js — API client for Admin review queue endpoints (new v2.0, Architecture.md §8)
-// Admin accounts are provisioned manually — never via public signup (FR-2)
-import axios from 'axios';
+import api from '../lib/api';
 
-// TODO: implement getReviewQueue(status) → GET /api/admin/listings?status=pending_review
-// TODO: implement reviewListing(listingId, decision) → PATCH /api/admin/listings/:id/review
-//       decision: { decision: 'approved' } or { decision: 'rejected', reason: '...' }
-//       Only an admin-role account may call this endpoint — enforced server-side (FR-4)
+/**
+ * Admin API Client Wrappers
+ */
+export const getAdminReviewQueue = async (statusFilter = 'pending_review') => {
+  const response = await api.get('/admin/listings', { params: { status: statusFilter } });
+  return response.data;
+};
+
+export const getPendingListings = async (statusFilter = 'pending_review') => {
+  return getAdminReviewQueue(statusFilter);
+};
+
+export const reviewListingAction = async (listingId, decision, reason = '') => {
+  const response = await api.patch(`/admin/listings/${listingId}/review`, { decision, reason });
+  return response.data;
+};
+
+export const reviewListing = async (listingId, decision, reason = '') => {
+  return reviewListingAction(listingId, decision, reason);
+};

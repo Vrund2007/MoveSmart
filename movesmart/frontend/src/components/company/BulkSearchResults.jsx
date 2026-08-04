@@ -1,9 +1,30 @@
-// components/company/BulkSearchResults.jsx — Results of bulk housing search for a relocation batch (new v2.0, PRD §7.4, Architecture.md §4.4)
-// Results use same area-scoring engine as Find Accommodation (FR-8, shared scoring.py)
-// Only shows approved listings (FR-3)
-// TODO: accept batchId prop; fetch results from POST /api/company/relocation-batches/:id/search
-// TODO: display ranked locality/listing candidates per employee constraint
-function BulkSearchResults() {
-  return <div>BulkSearchResults — TODO</div>;
-}
+import React from 'react';
+import Card from '../common/Card';
+
+/**
+ * BulkSearchResults Component.
+ */
+const BulkSearchResults = ({ results = [] }) => {
+  if (!results || results.length === 0) {
+    return <p className="text-sm text-text-secondary">No candidates found for this batch search.</p>;
+  }
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {results.map((item) => (
+        <Card key={item.listing_id} className="flex justify-between items-center text-sm">
+          <div>
+            <h4 className="font-bold text-text-primary">{item.title}</h4>
+            <p className="text-xs text-text-secondary">{item.locality}</p>
+          </div>
+          <div className="text-right">
+            <p className="font-bold text-primary tabular-nums">₹{item.price?.toLocaleString()}</p>
+            <span className="text-xs font-medium text-success">Match {item.match_score}%</span>
+          </div>
+        </Card>
+      ))}
+    </div>
+  );
+};
+
 export default BulkSearchResults;

@@ -7,7 +7,6 @@ from typing import Optional
 
 _client: Optional[pymongo.MongoClient] = None
 _db = None
-DB_NAME = 'movesmart'
 
 
 def get_db():
@@ -16,17 +15,18 @@ def get_db():
     Raises:
         RuntimeError: if MONGO_URI is not configured in settings/.env
     Returns:
-        pymongo.database.Database — the 'movesmart' database
+        pymongo.database.Database — the MongoDB database
     """
     global _client, _db
     if _db is None:
         uri = getattr(settings, 'MONGO_URI', None)
+        db_name = getattr(settings, 'DATABASE_NAME', 'movesmart_db')
         if not uri:
             raise RuntimeError(
                 "MONGO_URI is not set. Add it to your .env file — e.g. MONGO_URI=mongodb://localhost:27017"
             )
         _client = pymongo.MongoClient(uri, serverSelectionTimeoutMS=5000)
-        _db = _client[DB_NAME]
+        _db = _client[db_name]
         # Ensure indexes on first connect (database.md §3.1, §3.2)
         _ensure_indexes(_db)
     return _db

@@ -15,12 +15,15 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # ─── Core ─────────────────────────────────────────────────────────────────────
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'change-me-in-env')
 DEBUG = os.environ.get('DJANGO_DEBUG', 'True') == 'True'
-ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
+ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1,testserver').split(',')
+if 'testserver' not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append('testserver')
 
 # ─── Installed Apps ───────────────────────────────────────────────────────────
-# Django's built-in admin site is NOT used — see Architecture.md §2.
-# apps/admin_review/ is the custom Admin approval workflow, not Django admin.
 INSTALLED_APPS = [
+    # Core app config (loads ML models once at startup)
+    'config.apps.MoveSmartCoreConfig',
+
     # Django apps
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -43,7 +46,13 @@ INSTALLED_APPS = [
     'apps.commute',
     'apps.cost_of_living',
     'apps.assistant',
+    'apps.visits',
+    'apps.messages',
+    'apps.payments',
+    'apps.reviews',
+    'apps.documents',
 ]
+
 # ─── Middleware ────────────────────────────────────────────────────────────────
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -78,9 +87,8 @@ TEMPLATES = [
 WSGI_APPLICATION = 'config.wsgi.application'
 
 # ─── Database ─────────────────────────────────────────────────────────────────
-# No Django ORM DATABASES block — MongoDB is accessed directly via PyMongo.
-# See db/connection.py for the PyMongo client setup (Architecture.md §2).
 MONGO_URI = os.environ.get('MONGO_URI', '')
+DATABASE_NAME = os.environ.get('DATABASE_NAME', 'movesmart_db')
 
 # ─── Static files ─────────────────────────────────────────────────────────────
 STATIC_URL = '/static/'
@@ -88,12 +96,12 @@ STATIC_URL = '/static/'
 # ─── DRF ──────────────────────────────────────────────────────────────────────
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        # Custom backend — loads user from MongoDB instead of Django ORM (Architecture.md §2)
         'apps.accounts.authentication.MongoJWTAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
     ],
+    'EXCEPTION_HANDLER': 'apps.common.exceptions.custom_exception_handler',
 }
 
 # ─── JWT ──────────────────────────────────────────────────────────────────────
@@ -108,10 +116,9 @@ SIMPLE_JWT = {
 CORS_ALLOWED_ORIGINS = os.environ.get(
     'CORS_ALLOWED_ORIGINS', 'http://localhost:3000'
 ).split(',')
-CORS_ALLOW_CREDENTIALS = True   # required for Authorization header from Vite dev server
+CORS_ALLOW_CREDENTIALS = True
 
 # ─── External APIs ────────────────────────────────────────────────────────────
-# Gemini and Maps API keys — server-side only, never exposed to frontend (Rules.md §5)
 GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '')
 MAPS_API_KEY = os.environ.get('MAPS_API_KEY', '')
 

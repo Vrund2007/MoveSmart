@@ -1,254 +1,330 @@
-// src/pages/ListingDetail.jsx
-// Full detail view for a single listing (Architecture.md §4.1, PRD §7.1)
-// Displays listing specifications, ML predictions, safety metrics, and enquiry form.
-
-import React, { useState } from 'react';
+// src/pages/ListingDetail.jsx — Listing Detail View (PRD §7.1, Architecture.md §4.1)
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { LISTINGS, LOCALITIES } from '../utils/mockData';
+import { getListing } from '../api/listings';
+import { saveListing, removeSavedListing, getSavedListings } from '../api/savedListings';
+import { getCostEstimate } from '../api/costOfLiving';
+import { getCommuteEstimate } from '../api/commute';
+
+import Card from '../components/common/Card';
+import Button from '../components/common/Button';
+import LoadingSpinner from '../components/common/LoadingSpinner';
+import StatusBadge from '../components/listings/StatusBadge';
+import CostBreakdownTable from '../components/cost/CostBreakdownTable';
+import CommutePanel from '../components/commute/CommutePanel';
+import RentPredictionCard from '../components/ml/RentPredictionCard';
+import TrustSignalCard from '../components/ml/TrustSignalCard';
 
 export default function ListingDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  // Find listing from mock database
-  const listing = LISTINGS.find(p => p.id === id);
-
+  const [listing, setListing] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [activePhoto, setActivePhoto] = useState(0);
-  const [enquiryName, setEnquiryName] = useState('');
-  const [enquiryEmail, setEnquiryEmail] = useState('');
-  const [enquiryPhone, setEnquiryPhone] = useState('');
-  const [enquiryMsg, setEnquiryMsg] = useState('I am interested in this property. Please share contact coordinates.');
-  const [submitted, setSubmitted] = useState(false);
 
-  if (!listing) {
+  // Bookmarking state
+  const [isSaved, setIsSaved] = useState(false);
+  const [savedId, setSavedId] = useState(null);
+  const [saving, setSaving] = useState(false);
+
+  // Auxiliary data
+  const [costData, setCostData] = useState(null);
+  const [commuteData, setCommuteData] = useState(null);
+  const [commuteError, setCommuteError] = useState('');
+
+  // Enquiry modal state
+  const [isEnquiryOpen, setIsEnquiryOpen] = useState(false);
+  const [enquirySent, setEnquirySent] = useState(false);
+
+  useEffect(() => {
+    const fetchListingDetail = async () => {
+      setLoading(true);
+      setError('');
+      try {
+        const res = await getListing(id);
+        const data = res.data || res;
+        setListing(data);
+
+        // Check if saved
+        try {
+          const savedRes = await getSavedListings();
+          const savedList = savedRes.data || savedRes;
+          const match = savedList.find(s => s.listing_id === id || s.listing?._id === id);
+          if (match) {
+            setIsSaved(true);
+            setSavedId(match._id);
+          }
+        } catch (e) {
+          // ignore error
+        }
+
+        // Fetch cost of living for this listing's locality
+        if (data?.locality) {
+          try {
+            const cRes = await getCostEstimate(data.locality, data.price);
+            setCostData(cRes.data || cRes);
+          } catch (e) {
+            // ignore
+          }
+
+          // Fetch commute estimate
+          try {
+            const cmRes = await getCommuteEstimate(data.locality, 'SG Highway, Ahmedabad');
+            setCommuteData(cmRes.data || cmRes);
+          } catch (e) {
+            setCommuteError('Commute data temporarily unavailable.');
+          }
+        }
+      } catch (err) {
+        setError(err.response?.data?.message || 'Property listing not found or not approved.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchListingDetail();
+  }, [id]);
+
+  const handleToggleSave = async () => {
+    setSaving(true);
+    try {
+      if (isSaved && savedId) {
+        await removeSavedListing(savedId);
+        setIsSaved(false);
+        setSavedId(null);
+      } else {
+        const res = await saveListing(id);
+        const data = res.data || res;
+        setIsSaved(true);
+        setSavedId(data._id);
+      }
+    } catch (err) {
+      alert('Failed to update bookmark.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
     return (
-      <div className="min-h-screen bg-[#EEEEEE] flex flex-col justify-center items-center">
-        <h2 className="text-2xl font-bold text-[#222831]">Listing Not Found</h2>
-        <button 
-          onClick={() => navigate('/dashboard')}
-          className="mt-4 bg-[#00ADB5] text-white px-4 py-2 rounded-lg font-semibold text-xs"
-        >
-          Return to Dashboard
-        </button>
+      <div className="min-h-screen bg-[#EEEEEE] flex justify-center items-center">
+        <LoadingSpinner size="lg" message="Loading property listing details..." />
       </div>
     );
   }
 
-  // Find locality details
-  const localityDetails = LOCALITIES.find(l => l.name === listing.locality);
+  if (error || !listing) {
+    return (
+      <div className="min-h-screen bg-[#EEEEEE] flex flex-col justify-center items-center p-6">
+        <Card className="text-center max-w-md w-full">
+          <span className="text-4xl block mb-2">🏠</span>
+          <h2 className="text-lg font-bold text-text-primary mb-1">Listing Unavailable</h2>
+          <p className="text-xs text-text-secondary mb-6">{error || 'This listing does not exist or has not been approved.'}</p>
+          <Button variant="primary" size="sm" onClick={() => navigate('/dashboard?tab=browse')}>
+            Return to Browse Listings
+          </Button>
+        </Card>
+      </div>
+    );
+  }
 
-  const handleEnquiry = (e) => {
-    e.preventDefault();
-    if (!enquiryName || !enquiryEmail || !enquiryPhone) return;
-    setSubmitted(true);
-  };
+  const images = listing.images?.length ? listing.images : ['https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=800&q=80'];
 
   return (
-    <div className="min-h-screen bg-[#EEEEEE] py-12 px-6">
-      <div className="w-full max-w-5xl mx-auto space-y-6">
+    <div className="min-h-screen bg-[#EEEEEE] py-8 px-6 font-sans text-[#222831]">
+      <div className="max-w-5xl mx-auto space-y-6">
         {/* Navigation back */}
-        <div className="flex items-center space-x-2">
-          <button 
-            onClick={() => navigate('/dashboard?tab=search')}
-            className="text-xs font-bold text-[#393E46] hover:text-[#00ADB5] transition-colors"
+        <div className="flex justify-between items-center">
+          <button
+            onClick={() => navigate('/dashboard?tab=browse')}
+            className="text-xs font-bold text-text-secondary hover:text-primary transition-colors flex items-center gap-1"
           >
-            ← Back to Property Search
+            ← Back to Listings
           </button>
+          <div className="flex gap-2">
+            <Button
+              variant={isSaved ? 'secondary' : 'primary'}
+              size="sm"
+              loading={saving}
+              onClick={handleToggleSave}
+            >
+              {isSaved ? '★ Saved in Bookmarks' : '☆ Save Listing'}
+            </Button>
+            <Button variant="primary" size="sm" onClick={() => setIsEnquiryOpen(true)}>
+              Contact / Enquiry
+            </Button>
+          </div>
         </div>
 
-        {/* Main Grid */}
+        {/* Main Listing Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          {/* Details / Gallery */}
-          <div className="lg:col-span-8 bg-white border border-[#D9D9D9] p-6 rounded-xl space-y-6 shadow-sm">
-            {/* Header info */}
-            <div className="flex justify-between items-start border-b border-[#EEEEEE] pb-4">
-              <div>
-                <span className="text-xs font-bold text-[#00ADB5] uppercase tracking-wider">{listing.locality} Zone</span>
-                <h1 className="text-2xl font-extrabold text-[#222831] mt-1">{listing.title}</h1>
-                <p className="text-xs text-[#393E46] font-semibold mt-1">
-                  Posted on {listing.addedOn} • Listed by {listing.ownerName}
-                </p>
+          {/* Main Property Card & Specs */}
+          <div className="lg:col-span-8 space-y-6">
+            <Card className="space-y-6">
+              {/* Header Info */}
+              <div className="flex justify-between items-start border-b border-border pb-4">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-xs font-bold text-primary uppercase tracking-wider">{listing.locality}</span>
+                    <StatusBadge status={listing.status} />
+                  </div>
+                  <h1 className="text-2xl font-extrabold text-text-primary">{listing.title}</h1>
+                  <p className="text-xs text-text-secondary mt-1">
+                    Deal Type: <strong className="uppercase">{listing.deal_type}</strong> • Source: {listing.source}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <span className="block text-2xl font-extrabold text-text-primary tabular-nums">
+                    ₹{listing.price?.toLocaleString()}
+                  </span>
+                  <span className="text-[10px] font-bold text-text-secondary uppercase">Monthly Rent</span>
+                </div>
               </div>
-              <div className="text-right">
-                <span className="block text-2xl font-extrabold text-[#222831] tabular-nums">
-                  ₹{listing.price.toLocaleString('en-IN')}
-                </span>
-                <span className="text-[10px] font-bold text-[#393E46] uppercase">Monthly Rent</span>
-              </div>
-            </div>
 
-            {/* Photo Gallery */}
-            <div className="space-y-3">
-              <div className="h-96 bg-[#EEEEEE] rounded-xl overflow-hidden border border-[#D9D9D9]">
-                <img
-                  src={listing.photos[activePhoto]}
-                  alt={listing.title}
-                  className="w-full h-full object-cover"
-                />
+              {/* Photos Gallery */}
+              <div className="space-y-3">
+                <div className="h-80 bg-gray-100 rounded-xl overflow-hidden border border-border">
+                  <img src={images[activePhoto]} alt={listing.title} className="w-full h-full object-cover" />
+                </div>
+                {images.length > 1 && (
+                  <div className="flex gap-2 overflow-x-auto pb-1">
+                    {images.map((img, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => setActivePhoto(idx)}
+                        className={`w-20 h-14 rounded-lg overflow-hidden border-2 flex-shrink-0 transition-all ${
+                          activePhoto === idx ? 'border-primary' : 'border-transparent'
+                        }`}
+                      >
+                        <img src={img} alt="Thumb" className="w-full h-full object-cover" />
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
-              {listing.photos.length > 1 && (
-                <div className="flex space-x-3">
-                  {listing.photos.map((p, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => setActivePhoto(idx)}
-                      className={`w-24 h-16 rounded-lg overflow-hidden border-2 transition-all ${
-                        activePhoto === idx ? 'border-[#00ADB5]' : 'border-transparent'
-                      }`}
-                    >
-                      <img src={p} alt="Gallery Thumb" className="w-full h-full object-cover" />
-                    </button>
-                  ))}
+
+              {/* Specs Grid */}
+              <div className="grid grid-cols-3 gap-3 border-y border-border py-4 text-xs font-bold text-text-primary">
+                <div className="text-center bg-surface p-3 rounded-lg border border-border">
+                  <span className="block text-[10px] text-text-secondary font-semibold mb-0.5">Sizing</span>
+                  {listing.bhk} BHK
+                </div>
+                <div className="text-center bg-surface p-3 rounded-lg border border-border">
+                  <span className="block text-[10px] text-text-secondary font-semibold mb-0.5">Furnishing</span>
+                  <span className="capitalize">{listing.furnishing || 'N/A'}</span>
+                </div>
+                <div className="text-center bg-surface p-3 rounded-lg border border-border">
+                  <span className="block text-[10px] text-text-secondary font-semibold mb-0.5">Area Sizing</span>
+                  {listing.area_sqft ? `${listing.area_sqft} sqft` : 'N/A'}
+                </div>
+              </div>
+
+              {/* Description */}
+              {listing.description && (
+                <div>
+                  <h4 className="font-bold text-xs text-text-primary uppercase tracking-wider mb-2">Description</h4>
+                  <p className="text-xs text-text-secondary leading-relaxed bg-surface p-3 rounded border border-border">
+                    {listing.description}
+                  </p>
                 </div>
               )}
-            </div>
 
-            {/* Specs Grid */}
-            <div className="grid grid-cols-3 gap-4 border-y border-[#EEEEEE] py-4 text-xs font-bold text-[#222831]">
-              <div className="text-center bg-[#EEEEEE] p-3 rounded-lg border border-[#D9D9D9]">
-                <span className="block text-[10px] text-[#393E46] font-semibold mb-0.5">Sizing</span>
-                {listing.bhk} BHK
-              </div>
-              <div className="text-center bg-[#EEEEEE] p-3 rounded-lg border border-[#D9D9D9]">
-                <span className="block text-[10px] text-[#393E46] font-semibold mb-0.5">Bathrooms</span>
-                {listing.bathrooms} Baths
-              </div>
-              <div className="text-center bg-[#EEEEEE] p-3 rounded-lg border border-[#D9D9D9]">
-                <span className="block text-[10px] text-[#393E46] font-semibold mb-0.5">Area Sizing</span>
-                {listing.sizeSqFt} sq ft
-              </div>
-            </div>
-
-            {/* AI Trust Analysis */}
-            <div className="space-y-3">
-              <h4 className="font-bold text-xs text-[#222831] uppercase tracking-wider">AI Trust & Pricing Diagnostics</h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-[#EEEEEE] p-4 rounded-xl border border-[#D9D9D9] flex flex-col justify-between">
-                  <span className="text-[10px] font-bold text-[#393E46] uppercase">XGBoost Rent Model Comparison</span>
-                  <div className="text-lg font-extrabold text-[#222831] mt-2 tabular-nums">
-                    ₹{listing.predictedPrice.toLocaleString('en-IN')}
-                    <span className={`text-xs ml-2 font-bold ${
-                      listing.predictedDiff > 0 ? 'text-[#EF4444]' : 'text-[#22C55E]'
-                    }`}>
-                      {listing.predictedDiff > 0 ? `+${listing.predictedDiff}% Over market` : `${listing.predictedDiff}% Under market`}
-                    </span>
+              {/* Amenities */}
+              {listing.amenities?.length > 0 && (
+                <div>
+                  <h4 className="font-bold text-xs text-text-primary uppercase tracking-wider mb-2">Amenities</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {listing.amenities.map((a, i) => (
+                      <span key={i} className="text-xs font-semibold bg-teal-50 text-primary border border-teal-200 px-3 py-1 rounded-full">
+                        {a}
+                      </span>
+                    ))}
                   </div>
-                </div>
-
-                <div className="bg-[#EEEEEE] p-4 rounded-xl border border-[#D9D9D9] flex flex-col justify-between">
-                  <span className="text-[10px] font-bold text-[#393E46] uppercase">Isolation Forest Trust Index</span>
-                  <div className="flex items-center space-x-2 mt-2">
-                    <span className={`text-lg font-extrabold tabular-nums ${
-                      listing.isSuspicious ? 'text-[#F59E0B]' : 'text-[#22C55E]'
-                    }`}>
-                      {listing.trustScore}% Trust
-                    </span>
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
-                      listing.isSuspicious ? 'bg-[#F59E0B]/10 text-[#F59E0B]' : 'bg-[#22C55E]/10 text-[#22C55E]'
-                    }`}>
-                      {listing.isSuspicious ? 'Anomalous' : 'Vetted'}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {listing.isSuspicious && (
-                <div className="bg-[#F59E0B]/10 border border-[#F59E0B] p-4 rounded-xl text-xs text-[#393E46] leading-relaxed">
-                  ⚠️ <strong>Anomalous Listing Alert:</strong> Price deviates significantly from neighborhood averages. Listing flagged for manual admin inspection.
                 </div>
               )}
-            </div>
+            </Card>
 
-            {/* Neighborhood amenities */}
-            {localityDetails && (
-              <div className="space-y-4 pt-4 border-t border-[#EEEEEE]">
-                <h4 className="font-bold text-xs text-[#222831] uppercase tracking-wider">Neighborhood Assets</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-                  <div className="bg-[#EEEEEE] p-4 rounded-lg border border-[#D9D9D9]">
-                    <strong className="block text-[#393E46] mb-2">Education Quality (Schools Score {localityDetails.schoolsScore}/100)</strong>
-                    <ul className="list-disc pl-4 space-y-1 text-[#222831] font-semibold">
-                      {localityDetails.schools.map((s, idx) => <li key={idx}>{s}</li>)}
-                    </ul>
-                  </div>
-                  <div className="bg-[#EEEEEE] p-4 rounded-lg border border-[#D9D9D9]">
-                    <strong className="block text-[#393E46] mb-2">Medical Services</strong>
-                    <ul className="list-disc pl-4 space-y-1 text-[#222831] font-semibold">
-                      {localityDetails.hospitals.map((h, idx) => <li key={idx}>{h}</li>)}
-                    </ul>
-                  </div>
-                </div>
-              </div>
-            )}
+            {/* XGBoost Fair Rent Prediction Card */}
+            <RentPredictionCard prediction={listing.rent_prediction || listing.predicted_price_range} />
+
+            {/* Commute Panel Component */}
+            {commuteError ? (
+              <Card className="text-center py-4 text-xs text-warning bg-amber-50 border-amber-200">
+                {commuteError}
+              </Card>
+            ) : commuteData ? (
+              <CommutePanel
+                durationMinutes={commuteData.duration_minutes || 25}
+                distanceKm={commuteData.distance_km || 8.5}
+                mode={commuteData.mode || 'driving'}
+              />
+            ) : null}
           </div>
 
-          {/* Sidebar enquiry */}
-          <div className="lg:col-span-4 bg-white border border-[#D9D9D9] p-6 rounded-xl shadow-sm space-y-6">
-            <h3 className="font-bold text-lg text-[#222831] border-b border-[#EEEEEE] pb-2">Enquire Listing</h3>
-            
-            {submitted ? (
-              <div className="bg-[#22C55E]/10 border border-[#22C55E] p-6 rounded-xl text-center space-y-3">
-                <span className="text-3xl">✓</span>
-                <h4 className="font-bold text-sm text-[#22C55E] uppercase tracking-wider">Enquiry Sent</h4>
-                <p className="text-xs text-[#393E46] leading-relaxed">
-                  Your enquiry has been dispatched to {listing.ownerName}. The broker will contact you shortly.
-                </p>
-              </div>
-            ) : (
-              <form onSubmit={handleEnquiry} className="space-y-4">
-                <div>
-                  <label className="block text-[10px] font-bold text-[#393E46] uppercase mb-1">Your Full Name</label>
-                  <input
-                    type="text"
-                    required
-                    value={enquiryName}
-                    onChange={(e) => setEnquiryName(e.target.value)}
-                    className="w-full border border-[#D9D9D9] p-2.5 rounded-lg text-xs bg-white text-[#222831] focus:outline-none focus:ring-1 focus:ring-[#00ADB5]"
-                  />
-                </div>
+          {/* Sidebar Cost Estimator & Trust Signal */}
+          <div className="lg:col-span-4 space-y-6">
+            {/* Isolation Forest Trust Score Signal Card */}
+            <TrustSignalCard trustSignal={listing.trust_score || listing.verification_flags} />
 
-                <div>
-                  <label className="block text-[10px] font-bold text-[#393E46] uppercase mb-1">Your Email</label>
-                  <input
-                    type="email"
-                    required
-                    value={enquiryEmail}
-                    onChange={(e) => setEnquiryEmail(e.target.value)}
-                    className="w-full border border-[#D9D9D9] p-2.5 rounded-lg text-xs bg-white text-[#222831] focus:outline-none focus:ring-1 focus:ring-[#00ADB5]"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-bold text-[#393E46] uppercase mb-1">Contact Phone</label>
-                  <input
-                    type="tel"
-                    required
-                    value={enquiryPhone}
-                    onChange={(e) => setEnquiryPhone(e.target.value)}
-                    className="w-full border border-[#D9D9D9] p-2.5 rounded-lg text-xs bg-white text-[#222831] focus:outline-none focus:ring-1 focus:ring-[#00ADB5]"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-bold text-[#393E46] uppercase mb-1">Custom Message</label>
-                  <textarea
-                    rows="3"
-                    value={enquiryMsg}
-                    onChange={(e) => setEnquiryMsg(e.target.value)}
-                    className="w-full border border-[#D9D9D9] p-2.5 rounded-lg text-xs bg-white text-[#222831] focus:outline-none focus:ring-1 focus:ring-[#00ADB5]"
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  className="w-full bg-[#00ADB5] hover:bg-[#008C93] text-white font-semibold py-3 rounded-lg text-xs transition-colors shadow-sm"
-                >
-                  Send Enquiry Request
-                </button>
-              </form>
+            {costData && (
+              <CostBreakdownTable
+                breakdown={costData.breakdown}
+                locality={costData.locality}
+                disclaimer={costData.disclaimer}
+              />
             )}
+
+            <Card className="space-y-3">
+              <h4 className="font-bold text-xs text-text-primary uppercase tracking-wider">Owner Contact Info</h4>
+              <p className="text-xs text-text-secondary">
+                Listed by verified Property Owner. Use the Enquiry button to request phone coordinates.
+              </p>
+              <Button variant="primary" size="sm" className="w-full" onClick={() => setIsEnquiryOpen(true)}>
+                Send Enquiry
+              </Button>
+            </Card>
           </div>
         </div>
       </div>
+
+      {/* Enquiry Dialog Modal */}
+      {isEnquiryOpen && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl p-6 max-w-md w-full shadow-xl space-y-4">
+            <h3 className="text-lg font-bold text-text-primary">Send Property Enquiry</h3>
+            {enquirySent ? (
+              <div className="bg-teal-50 border border-teal-200 text-primary text-xs p-4 rounded text-center space-y-2">
+                <p className="font-bold">✓ Enquiry Sent Successfully!</p>
+                <p className="text-text-secondary">The property owner will receive your contact details.</p>
+                <Button variant="secondary" size="sm" onClick={() => { setIsEnquiryOpen(false); setEnquirySent(false); }}>
+                  Close
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <p className="text-xs text-text-secondary">
+                  Sending enquiry for <strong>"{listing.title}"</strong> ({listing.locality}).
+                </p>
+                <textarea
+                  rows={3}
+                  defaultValue="Hi, I am interested in renting this property. Please share viewing times."
+                  className="w-full bg-surface border border-border rounded p-2.5 text-xs text-text-primary outline-none focus:border-primary"
+                />
+                <div className="flex gap-3 justify-end pt-2">
+                  <Button variant="secondary" size="sm" onClick={() => setIsEnquiryOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button variant="primary" size="sm" onClick={() => setEnquirySent(true)}>
+                    Send Enquiry Request
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

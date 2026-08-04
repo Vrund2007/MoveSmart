@@ -1,30 +1,59 @@
-"""ml/shared/feature_engineering.py — Shared feature preparation for both ML models (Architecture.md §7, Rules.md §7)
+"""ml/shared/feature_engineering.py — Shared feature engineering logic (Architecture.md §5, Rules.md §7)
 
-CRITICAL (Rules.md §7): Any change to this file must be applied consistently to BOTH the training
-scripts (train.py) and the inference code (model.py). A mismatch is a silent correctness bug
-and must be treated as high severity.
+CRITICAL: Rules.md §7 — feature engineering MUST be identical between training (train.py)
+and inference (model.py). Any feature added here must handle missing fields gracefully.
 """
-from typing import Optional, List
+from typing import Dict, Any, Optional, List
+
+LOCALITY_ENCODING = {
+    "vastrapur": 1.0,
+    "satellite": 2.0,
+    "bodakdev": 3.0,
+    "thaltej": 4.0,
+    "prahladnagar": 5.0,
+    "gota": 6.0,
+    "vejalpur": 7.0,
+}
 
 
-def prepare_features(listing: dict) -> Optional[List[float]]:
-    """Convert a raw listing dict into a numeric feature vector for ML inference or training.
+def prepare_features(listing_dict: Dict[str, Any]) -> Optional[List[float]]:
+    """Extract numeric feature vector from a normalized listing dictionary.
 
-    Args:
-        listing: normalized listing document from MongoDB.
+    Features vector format:
+        [bhk, area_sqft, price, price_per_sqft, furnishing_encoded, amenities_count, locality_code]
 
     Returns:
-        List of floats (feature vector), or None if required features are missing.
-
-    Rules.md §3: Never fabricate missing features — return None if required fields are absent.
-
-    TODO: implement feature extraction:
-        - price_per_sqft = listing.price / listing.area_sqft (handle division by zero / missing)
-        - locality_encoded (ordinal or one-hot based on training data distribution)
-        - deal_type_encoded (rent=0, buy=1)
-        - bhk (numeric, as-is)
-        - furnishing_encoded (unfurnished=0, semi=1, fully=2)
-        - ... (expand as training data warrants)
-    TODO: validate required fields — if any are None/missing, return None (not a placeholder value)
+        List of floats if valid, or None if essential fields are missing.
     """
-    pass
+    if not listing_dict:
+        return None
+
+    bhk = listing_dict.get("bhk")
+    area_sqft = listing_dict.get("area_sqft")
+    price = listing_dict.get("price")
+
+    if bhk is None or area_sqft is None or price is None or float(area_sqft) <= 0:
+        return None
+
+    bhk_val = float(bhk)
+    area_val = float(area_sqft)
+    price_val = float(price)
+    price_per_sqft = price_val / area_val
+
+    furnishing = str(listing_dict.get("furnishing", "")).lower()
+    if "unfurnished" in furnishing:
+        furnishing_encoded = 0.0
+    elif "semi" in furnishing:
+        furnishing_encoded = 1.0
+    elif "full" in furnishing or "furnished" in furnishing:
+        furnishing_encoded = 2.0
+    else:
+        furnishing_encoded = 0.5
+
+    amenities = listing_dict.get("amenities", [])
+    amenities_count = float(len(amenities) if isinstance(amenities, list) else 0)
+
+    loc_name = str(listing_dict.get("locality", "")).lower().strip()
+    locality_code = LOCALITY_ENCODING.get(loc_name, 0.0)
+
+    return [bhk_val, area_val, price_val, price_per_sqft, furnishing_encoded, amenities_count, locality_code]

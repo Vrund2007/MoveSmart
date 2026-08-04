@@ -1,5 +1,11 @@
-// api/commute.js — API client for commute estimation endpoint (Architecture.md §8: GET /api/commute)
-import axios from 'axios';
+import api from '../lib/api';
 
-// TODO: implement getCommute(from, to, mode) → GET /api/commute
-//       Results are cached server-side in commute_cache collection (database.md §3.8)
+/**
+ * Commute API Client Wrapper
+ */
+export const getCommuteEstimate = async (fromLocality, toDestination, mode = 'driving') => {
+  const response = await api.get('/commute', {
+    params: { from: fromLocality, to: toDestination, mode }
+  });
+  return response.data;
+};

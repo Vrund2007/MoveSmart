@@ -1,5 +1,14 @@
-// api/enquiries.js — API client for enquiry endpoints (new v2.0, Architecture.md §8: POST/GET /api/enquiries)
-import axios from 'axios';
+import api from '../lib/api';
 
-// TODO: implement sendEnquiry(listingId, message) → POST /api/enquiries (Find Accommodation → Owner/Broker)
-// TODO: implement getMyEnquiries() → GET /api/enquiries?listing_owner=me (Owner's own enquiries only, FR-7)
+/**
+ * Enquiries API Client Wrappers
+ */
+export const sendEnquiry = async (listingId, message) => {
+  const response = await api.post('/enquiries', { listing_id: listingId, message });
+  return response.data;
+};
+
+export const getOwnerEnquiries = async () => {
+  const response = await api.get('/enquiries', { params: { listing_owner: 'me' } });
+  return response.data;
+};

@@ -1,7 +1,43 @@
-// api/auth.js — API client for auth endpoints (Architecture.md §8: POST /api/auth/register, POST /api/auth/login, PATCH /api/auth/role)
-import axios from 'axios';
+import api from '../lib/api';
 
-// TODO: create a shared axios instance with baseURL from env and JWT interceptor
-// TODO: implement register(email, password) → POST /api/auth/register
-// TODO: implement login(email, password) → POST /api/auth/login
-// TODO: implement setRole(role) → PATCH /api/auth/role  (excludes 'admin' per FR-2)
+/**
+ * Auth API Client Wrappers
+ */
+export const registerUser = async (data) => {
+  const response = await api.post('/auth/register', data);
+  return response.data;
+};
+
+export const loginUser = async (data) => {
+  const response = await api.post('/auth/login', data);
+  return response.data;
+};
+
+export const logoutUser = async () => {
+  try {
+    const response = await api.post('/auth/logout');
+    return response.data;
+  } catch (err) {
+    return { success: true };
+  }
+};
+
+export const refreshToken = async (refresh) => {
+  const response = await api.post('/auth/refresh', { refresh });
+  return response.data;
+};
+
+export const setUserRole = async (role) => {
+  const response = await api.patch('/auth/role', { role });
+  return response.data;
+};
+
+export const getUserProfile = async () => {
+  const response = await api.get('/profile');
+  return response.data;
+};
+
+export const updateUserProfile = async (profileData) => {
+  const response = await api.put('/profile', profileData);
+  return response.data;
+};
