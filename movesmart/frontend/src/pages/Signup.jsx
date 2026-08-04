@@ -3,8 +3,9 @@
 // Step 1: collect name, email, password, role → on success redirect to /choose-your-journey
 // Frontend-only stub — wire to POST /api/auth/register when backend is ready
 
-import { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect, useRef, useContext } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { AuthContext } from '../context/AuthContext';
 
 /* ─────────────────────────────────────────────────────────────
    EyeBall — white sclera + tracking pupil
@@ -216,8 +217,11 @@ export default function Signup() {
   const op = useCharPos(orangeRef, mx, my);
   const yp = useCharPos(yellowRef, mx, my);
 
+  const { register } = useContext(AuthContext);
+  const navigate = useNavigate();
+
   /* submit */
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     if (!name.trim())              { setError('Please enter your full name.'); return; }
@@ -226,11 +230,14 @@ export default function Signup() {
     if (password !== confirm)      { setError('Passwords do not match.'); return; }
     if (!agree)                    { setError('Please accept the Terms & Privacy Policy.'); return; }
     setLoading(true);
-    /* TODO: wire to POST /api/auth/register → then navigate to /choose-your-journey */
-    setTimeout(() => {
+    try {
+      await register(email, password, 'find_accommodation');
       setLoading(false);
-      setError('Backend not connected yet — this is a UI-only demo.');
-    }, 1400);
+      navigate('/choose-your-journey');
+    } catch (err) {
+      setLoading(false);
+      setError('Registration failed. Email might already exist.');
+    }
   };
 
   /* ──────────── Eye/PW toggle SVGs ──────────── */
