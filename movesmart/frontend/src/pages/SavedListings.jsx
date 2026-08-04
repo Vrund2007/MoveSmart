@@ -1,8 +1,9 @@
 // pages/SavedListings.jsx — Saved/bookmarked listings for Find Accommodation user (PRD §7.1, Architecture.md §4.1)
-// Fetches from GET /api/saved-listings; scoped to current user (FR-7 implied)
-// TODO: display list of saved ListingCards
-// TODO: implement unsave action (DELETE /api/saved-listings/:id)
+import React from 'react';
+import { Navigate } from 'react-router-dom';
+
 function SavedListings() {
-  return <div>SavedListings — TODO</div>;
+  return <Navigate to="/dashboard?tab=saved" replace />;
 }
 export default SavedListings;
+

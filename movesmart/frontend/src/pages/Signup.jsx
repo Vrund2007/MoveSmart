@@ -3,10 +3,9 @@
 // Step 1: collect name, email, password, role → on success redirect to /choose-your-journey
 // Frontend-only stub — wire to POST /api/auth/register when backend is ready
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useContext } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import { getRoleDashboard } from '../App';
+import { AuthContext } from '../context/AuthContext';
 
 /* ─────────────────────────────────────────────────────────────
    EyeBall — white sclera + tracking pupil
@@ -219,6 +218,9 @@ export default function Signup() {
   const op = useCharPos(orangeRef, mx, my);
   const yp = useCharPos(yellowRef, mx, my);
 
+  const { register } = useContext(AuthContext);
+  const navigate = useNavigate();
+
   /* submit */
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -228,21 +230,15 @@ export default function Signup() {
     if (password.length < 8)       { setError('Password must be at least 8 characters.'); return; }
     if (password !== confirm)      { setError('Passwords do not match.'); return; }
     if (!agree)                    { setError('Please accept the Terms & Privacy Policy.'); return; }
-
-    const regRes = await register(name, email, password, confirm);
-    if (!regRes.success) {
-      setError(regRes.error || 'Registration failed.');
-      return;
+    setLoading(true);
+    try {
+      await register(email, password, 'find_accommodation');
+      setLoading(false);
+      navigate('/choose-your-journey');
+    } catch (err) {
+      setLoading(false);
+      setError('Registration failed. Email might already exist.');
     }
-
-    const roleRes = await setRole(role);
-    if (!roleRes.success) {
-      setError(roleRes.error || 'Role assignment failed.');
-      return;
-    }
-
-    const dest = getRoleDashboard(role);
-    navigate(dest, { replace: true });
   };
 
   /* ──────────── Eye/PW toggle SVGs ──────────── */

@@ -21,11 +21,18 @@ ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(','
 # Django's built-in admin site is NOT used — see Architecture.md §2.
 # apps/admin_review/ is the custom Admin approval workflow, not Django admin.
 INSTALLED_APPS = [
+    # Django apps
     'django.contrib.auth',
     'django.contrib.contenttypes',
+    'django.contrib.sessions',
+    'django.contrib.messages',
     'django.contrib.staticfiles',
+
+    # Third-party apps
     'rest_framework',
     'corsheaders',
+
+    # Your apps
     'apps.accounts',
     'apps.listings',
     'apps.admin_review',
@@ -37,13 +44,18 @@ INSTALLED_APPS = [
     'apps.cost_of_living',
     'apps.assistant',
 ]
-
 # ─── Middleware ────────────────────────────────────────────────────────────────
 MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
+
+    'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
+
+    'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'django.contrib.messages.middleware.MessageMiddleware',
+
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 

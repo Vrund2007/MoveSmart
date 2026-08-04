@@ -2,10 +2,9 @@
 // Consistent with homepage design tokens: Design.md §2 color system + Plus Jakarta Sans font
 // Frontend-only stub — wire to POST /api/auth/login when backend is ready
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useContext } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import { getRoleDashboard } from '../App';
+import { AuthContext } from '../context/AuthContext';
 
 /* ─────────────────────────────────────────────────────────────
    EyeBall — white sclera + dark pupil that tracks the mouse
@@ -183,18 +182,40 @@ export default function Login() {
   const op = useCharPos(orangeRef, mx, my);
   const yp = useCharPos(yellowRef, mx, my);
 
-  /* submit */
+  const { login } = useContext(AuthContext);
+  const navigate = useNavigate();
+
+  /* submit stub */
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     if (!email || !password) { setError('Please fill in all fields.'); return; }
-
-    const res = await login(email, password);
-    if (res.success) {
-      const dest = getRoleDashboard(res.user.role);
-      navigate(dest, { replace: true });
-    } else {
-      setError(res.error || 'Invalid credentials.');
+    setLoading(true);
+    try {
+      const loggedUser = await login(email, password);
+      setLoading(false);
+      
+      // Route to correct dashboard role
+      if (loggedUser.role === 'admin') {
+        navigate('/admin/review');
+      } else if (loggedUser.role === 'property_owner') {
+        navigate('/owner');
+      } else if (loggedUser.role === 'broker') {
+        navigate('/broker');
+      } else if (loggedUser.role === 'company_hr') {
+        navigate('/company');
+      } else {
+        // Find accommodation check onboarding completed
+        const onboarded = localStorage.getItem('movesmart_onboarding_completed');
+        if (onboarded) {
+          navigate('/dashboard');
+        } else {
+          navigate('/choose-your-journey');
+        }
+      }
+    } catch (err) {
+      setLoading(false);
+      setError('Invalid email or password.');
     }
   };
 
