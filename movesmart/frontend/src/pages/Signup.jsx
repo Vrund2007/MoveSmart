@@ -228,7 +228,7 @@ export default function Signup() {
     if (password.length < 8) { setError('Password must be at least 8 characters.'); return; }
     if (password !== confirm) { setError('Passwords do not match.'); return; }
     if (!agree) { setError('Please accept the Terms & Privacy Policy.'); return; }
-    
+
     const res = await register(name, email, password, confirm);
     if (res.success) {
       navigate('/choose-your-journey');
@@ -711,7 +711,7 @@ export default function Signup() {
                 </div>
 
                 {/* Role selector */}
-                <div>
+                {/* <div>
                   <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#222831', marginBottom: 8, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
                     I am a…
                   </label>
@@ -725,7 +725,7 @@ export default function Signup() {
                         disabled={loading}
                       >
                         {/* radio dot */}
-                        <div style={{
+                {/* <div style={{
                           width: 16, height: 16, borderRadius: '50%', flexShrink: 0,
                           border: `2px solid ${role === r.value ? '#00ADB5' : '#D9D9D9'}`,
                           background: role === r.value ? '#00ADB5' : 'transparent',
@@ -741,7 +741,7 @@ export default function Signup() {
                       </button>
                     ))}
                   </div>
-                </div>
+                </div> */}
 
                 {/* Terms */}
                 <label style={{ display: 'flex', alignItems: 'flex-start', gap: 9, cursor: 'pointer' }}>
