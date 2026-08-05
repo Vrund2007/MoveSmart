@@ -1,4 +1,4 @@
-"""config/urls.py — Root URL routing; includes each app's urls (Architecture.md §5, §8)"""
+"""config/urls.py — Root URL routing; includes each app's urls (Architecture.md §5, §8, Phase 14)"""
 from django.urls import path, include
 from apps.common.views import HealthCheckView
 
@@ -22,5 +22,15 @@ urlpatterns = [
     path('api/owner/reviews/', include('apps.reviews.urls')),
     path('api/owner/documents/', include('apps.documents.urls')),
     path('api/owner/visits/', include('apps.visits.owner_urls')),
+    # Phase 13 — Shared Platform Services
+    path('api/', include('apps.notifications.urls')),
+    path('api/', include('apps.calendar.urls')),
+    path('api/', include('apps.search.urls')),
+    path('api/', include('apps.activity.urls')),
+    path('api/', include('apps.reports.urls')),
+    # Phase 14 — Super Admin Platform
+    path('api/', include('apps.admin_platform.urls')),
+    path('api/', include('apps.cms.urls')),
+    path('api/', include('apps.audit.urls')),
+    path('api/', include('apps.platform.urls')),
 ]
-

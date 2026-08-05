@@ -12,3 +12,8 @@ export const updateLeadStatus = async (leadId, status) => {
   const response = await api.patch(`/leads/${leadId}`, { lead_status: status });
   return response.data;
 };
+
+export const updateLeadDetails = async (leadId, payload) => {
+  const response = await api.patch(`/leads/${leadId}`, payload);
+  return response.data;
+};

@@ -63,11 +63,13 @@ export default function ListingDetail() {
         // Fetch cost of living for this listing's locality
         if (data?.locality) {
           try {
-            const cRes = await getCostEstimate(data.locality, data.price);
+            const rentBudgetForEst = data.deal_type === 'buy' ? 30000 : data.price;
+            const cRes = await getCostEstimate(data.locality, rentBudgetForEst);
             setCostData(cRes.data || cRes);
           } catch (e) {
             // ignore
           }
+
 
           // Fetch commute estimate
           try {
@@ -138,11 +140,19 @@ export default function ListingDetail() {
         {/* Navigation back */}
         <div className="flex justify-between items-center">
           <button
-            onClick={() => navigate('/dashboard?tab=browse')}
+            onClick={() => {
+              const lastPage = sessionStorage.getItem('last_browse_page') || '1';
+              if (window.history.length > 2) {
+                navigate(-1);
+              } else {
+                navigate(`/dashboard?tab=browse&page=${lastPage}`);
+              }
+            }}
             className="text-xs font-bold text-text-secondary hover:text-primary transition-colors flex items-center gap-1"
           >
             ← Back to Listings
           </button>
+
           <div className="flex gap-2">
             <Button
               variant={isSaved ? 'secondary' : 'primary'}
@@ -179,14 +189,26 @@ export default function ListingDetail() {
                   <span className="block text-2xl font-extrabold text-text-primary tabular-nums">
                     ₹{listing.price?.toLocaleString()}
                   </span>
-                  <span className="text-[10px] font-bold text-text-secondary uppercase">Monthly Rent</span>
+                  <span className="text-[10px] font-bold text-text-secondary uppercase">
+                    {listing.deal_type === 'rent' ? 'Monthly Rent' : 'Total Sale Price'}
+                  </span>
                 </div>
+
               </div>
 
               {/* Photos Gallery */}
               <div className="space-y-3">
                 <div className="h-80 bg-gray-100 rounded-xl overflow-hidden border border-border">
-                  <img src={images[activePhoto]} alt={listing.title} className="w-full h-full object-cover" />
+                  <img
+                    src={images[activePhoto]}
+                    alt={listing.title}
+                    referrerPolicy="no-referrer"
+                    onError={(e) => {
+                      e.target.onerror = null;
+                      e.target.src = 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=800&q=80';
+                    }}
+                    className="w-full h-full object-cover"
+                  />
                 </div>
                 {images.length > 1 && (
                   <div className="flex gap-2 overflow-x-auto pb-1">
@@ -198,12 +220,22 @@ export default function ListingDetail() {
                           activePhoto === idx ? 'border-primary' : 'border-transparent'
                         }`}
                       >
-                        <img src={img} alt="Thumb" className="w-full h-full object-cover" />
+                        <img
+                          src={img}
+                          alt="Thumb"
+                          referrerPolicy="no-referrer"
+                          onError={(e) => {
+                            e.target.onerror = null;
+                            e.target.src = 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=400&q=80';
+                          }}
+                          className="w-full h-full object-cover"
+                        />
                       </button>
                     ))}
                   </div>
                 )}
               </div>
+
 
               {/* Specs Grid */}
               <div className="grid grid-cols-3 gap-3 border-y border-border py-4 text-xs font-bold text-text-primary">
@@ -247,7 +279,8 @@ export default function ListingDetail() {
             </Card>
 
             {/* XGBoost Fair Rent Prediction Card */}
-            <RentPredictionCard prediction={listing.rent_prediction || listing.predicted_price_range} />
+            <RentPredictionCard prediction={listing.rent_prediction || listing.predicted_price_range} dealType={listing.deal_type} />
+
 
             {/* Commute Panel Component */}
             {commuteError ? (

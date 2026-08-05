@@ -3,6 +3,11 @@ import api from '../lib/api';
 /**
  * Company HR API Client Wrappers
  */
+export const getCompanyDashboard = async () => {
+  const response = await api.get('/company/dashboard');
+  return response.data;
+};
+
 export const createCompanyProfile = async (profileData) => {
   const response = await api.post('/company/profile', profileData);
   return response.data;

@@ -120,7 +120,10 @@ CORS_ALLOW_CREDENTIALS = True
 
 # ─── External APIs ────────────────────────────────────────────────────────────
 GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '')
-MAPS_API_KEY = os.environ.get('MAPS_API_KEY', '')
+GEOAPIFY_API_KEY = os.environ.get('GEOAPIFY_API_KEY', '435363f7628a447084da302c1cb4d029')
+MAPS_API_KEY = GEOAPIFY_API_KEY
+
+
 
 # ─── Default auto field ───────────────────────────────────────────────────────
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'

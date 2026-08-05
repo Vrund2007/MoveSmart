@@ -9,6 +9,7 @@ from .serializers import (
     RegisterSerializer, LoginSerializer, RoleSerializer, PROFILE_SERIALIZER_MAP
 )
 from . import services, repository
+from apps.commute.maps_client import clear_commute_cache
 
 
 class RegisterView(APIView):
@@ -165,19 +166,14 @@ class ProfileView(APIView):
         )
 
     def put(self, request):
-        user_role = request.user.role
-        if not user_role:
-            return api_response(
-                message="Role must be selected before updating role profile.",
-                status_code=status.HTTP_400_BAD_REQUEST
-            )
-
-        SerializerClass = PROFILE_SERIALIZER_MAP.get(user_role)
+        user_role = getattr(request.user, 'role', None) or 'find_accommodation'
+        SerializerClass = PROFILE_SERIALIZER_MAP.get(user_role, PROFILE_SERIALIZER_MAP.get('find_accommodation'))
         if not SerializerClass:
             return api_response(
                 message=f"No profile fields defined for role '{user_role}'.",
                 status_code=status.HTTP_400_BAD_REQUEST
             )
+
 
         serializer = SerializerClass(data=request.data)
         if not serializer.is_valid():
@@ -186,6 +182,10 @@ class ProfileView(APIView):
                 message="Validation error",
                 status_code=status.HTTP_400_BAD_REQUEST
             )
+
+        # Clear commute cache if work_area was updated (recommendations will re-fetch fresh data)
+        if 'work_area' in serializer.validated_data:
+            clear_commute_cache()
 
         updated_user = services.update_profile(
             user_id=request.user.id,

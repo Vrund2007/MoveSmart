@@ -3,6 +3,11 @@ import api from '../lib/api';
 /**
  * Broker API Client Wrappers
  */
+export const getBrokerDashboard = async () => {
+  const response = await api.get('/broker/dashboard');
+  return response.data;
+};
+
 export const getBrokerListings = async () => {
   const response = await api.get('/broker/listings');
   return response.data;

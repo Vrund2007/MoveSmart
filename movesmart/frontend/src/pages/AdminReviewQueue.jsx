@@ -206,7 +206,8 @@ export default function AdminReviewQueue() {
             </div>
             <div className="space-y-2 text-xs text-text-primary">
               <p><strong>Locality:</strong> {selectedListing.locality}</p>
-              <p><strong>Price:</strong> ₹{selectedListing.price?.toLocaleString()} / month ({selectedListing.deal_type})</p>
+              <p><strong>Price:</strong> ₹{selectedListing.price?.toLocaleString()} {selectedListing.deal_type === 'rent' ? '/ month' : '(Total Sale Price)'}</p>
+
               <p><strong>BHK / Area:</strong> {selectedListing.bhk} BHK • {selectedListing.area_sqft ? `${selectedListing.area_sqft} sqft` : 'N/A'}</p>
               <p><strong>Furnishing:</strong> {selectedListing.furnishing || 'Not specified'}</p>
               {selectedListing.description && (

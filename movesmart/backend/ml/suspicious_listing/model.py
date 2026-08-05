@@ -41,16 +41,18 @@ def predict_suspicious(listing_features: Dict[str, Any]) -> Optional[Dict[str, A
         if features is None:
             return None
 
-        result = _model.predict([features])[0]
+        raw_pred = _model.predict([features])[0]
         # Isolation Forest returns -1 for anomaly, 1 for normal
-        is_suspicious = bool(result == -1)
+        is_suspicious = bool(raw_pred == -1)
+
+        decision_score = float(_model.decision_function([features])[0])
 
         if is_suspicious:
             reason = "This listing appears unusual compared with similar listings in this neighborhood."
-            confidence = 88.5
+            confidence = round(min(89.0, max(72.0, 85.0 + (decision_score * 50.0))), 1)
         else:
             reason = "Listing price and specifications align with typical market benchmarks."
-            confidence = 96.0
+            confidence = round(min(99.0, max(91.0, 93.0 + (decision_score * 40.0))), 1)
 
         return {
             "is_suspicious": is_suspicious,
@@ -61,3 +63,4 @@ def predict_suspicious(listing_features: Dict[str, Any]) -> Optional[Dict[str, A
     except Exception as e:
         logger.error(f"Suspicious listing inference failed: {e}")
         return None
+

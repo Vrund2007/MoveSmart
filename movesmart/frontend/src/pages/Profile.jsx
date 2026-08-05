@@ -6,20 +6,23 @@ import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import Input from '../components/common/Input';
 import LoadingSpinner from '../components/common/LoadingSpinner';
+import InteractiveLocationPicker from '../components/common/InteractiveLocationPicker';
+
 
 const FURNISHING_OPTIONS = ['Any', 'Unfurnished', 'Semi-Furnished', 'Fully-Furnished'];
 const LIFESTYLE_OPTIONS = ['Peaceful', 'Vibrant', 'Student-Friendly', 'Family-Oriented', 'Pet-Friendly'];
 const COMMUTE_MODES = ['Car', 'Public Transport', 'Walking', 'Bike'];
 
 function ProfileCompletionBar({ user }) {
+  const rp = user?.role_profile || {};
   const fields = [
     user?.email,
-    user?.role_profile?.preferred_localities?.length > 0,
-    user?.role_profile?.max_budget,
-    user?.role_profile?.preferred_bhk,
-    user?.role_profile?.lifestyle_preference,
-    user?.role_profile?.commute_mode,
-    user?.role_profile?.work_area,
+    Array.isArray(rp.preferred_localities) ? rp.preferred_localities.length > 0 : Boolean(rp.preferred_localities),
+    rp.max_budget || rp.rent_budget,
+    rp.preferred_bhk,
+    rp.lifestyle_preference || rp.lifestyle_pref,
+    rp.commute_mode,
+    rp.work_area,
   ];
   const filled = fields.filter(Boolean).length;
   const percentage = Math.round((filled / fields.length) * 100);
@@ -43,8 +46,9 @@ function ProfileCompletionBar({ user }) {
   );
 }
 
+
 export default function Profile() {
-  const { user } = useContext(AuthContext);
+  const { user, setUser } = useContext(AuthContext);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState('');
   const [activeTab, setActiveTab] = useState('preferences');
@@ -61,20 +65,30 @@ export default function Profile() {
   });
 
   useEffect(() => {
+    getUserProfile().then((res) => {
+      const fetchedUser = res?.data?.user || res?.user || res?.data || res;
+      if (fetchedUser && fetchedUser.email) {
+        setUser(fetchedUser);
+      }
+    }).catch(() => {});
+  }, [setUser]);
+
+  useEffect(() => {
     if (user?.role_profile) {
       const rp = user.role_profile;
       setPrefs({
-        max_budget: rp.max_budget || '',
+        max_budget: rp.max_budget || rp.rent_budget || '',
         preferred_bhk: rp.preferred_bhk || '',
         preferred_localities: Array.isArray(rp.preferred_localities) ? rp.preferred_localities.join(', ') : (rp.preferred_localities || ''),
         preferred_furnishing: rp.preferred_furnishing || 'Any',
-        lifestyle_preference: rp.lifestyle_preference || 'Peaceful',
+        lifestyle_preference: rp.lifestyle_preference || rp.lifestyle_pref || 'Peaceful',
         commute_mode: rp.commute_mode || 'Public Transport',
         work_area: rp.work_area || '',
-        max_commute_minutes: rp.max_commute_minutes || 45,
+        max_commute_minutes: rp.max_commute_minutes || rp.commute_tolerance_minutes || 45,
       });
     }
   }, [user]);
+
 
   const handleSave = async (e) => {
     e.preventDefault();
@@ -82,29 +96,48 @@ export default function Profile() {
     setSuccess('');
     try {
       const payload = {
-        role: 'find_accommodation',
-        role_profile: {
-          max_budget: Number(prefs.max_budget) || null,
-          preferred_bhk: Number(prefs.preferred_bhk) || null,
-          preferred_localities: prefs.preferred_localities
-            ? prefs.preferred_localities.split(',').map((s) => s.trim()).filter(Boolean)
-            : [],
-          preferred_furnishing: prefs.preferred_furnishing,
-          lifestyle_preference: prefs.lifestyle_preference,
-          commute_mode: prefs.commute_mode,
-          work_area: prefs.work_area,
-          max_commute_minutes: Number(prefs.max_commute_minutes) || 45,
-        }
+        max_budget: Number(prefs.max_budget) || null,
+        rent_budget: Number(prefs.max_budget) || null,
+        preferred_bhk: Number(prefs.preferred_bhk) || null,
+        preferred_localities: prefs.preferred_localities
+          ? prefs.preferred_localities.split(',').map((s) => s.trim()).filter(Boolean)
+          : [],
+        preferred_furnishing: prefs.preferred_furnishing,
+        lifestyle_preference: prefs.lifestyle_preference,
+        lifestyle_pref: prefs.lifestyle_preference,
+        commute_mode: prefs.commute_mode,
+        work_area: prefs.work_area,
+        max_commute_minutes: Number(prefs.max_commute_minutes) || 45,
+        commute_tolerance_minutes: Number(prefs.max_commute_minutes) || 45,
       };
-      await updateRoleProfile(payload);
+
+      const res = await updateRoleProfile(payload);
+      const updatedUser = res?.data?.user || res?.user || res?.data || res;
+      if (updatedUser && updatedUser.email) {
+        setUser(updatedUser);
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+      } else {
+        const mergedUser = {
+          ...user,
+          role_profile: {
+            ...(user?.role_profile || {}),
+            ...payload
+          }
+        };
+        setUser(mergedUser);
+        localStorage.setItem('user', JSON.stringify(mergedUser));
+      }
+
       setSuccess('Profile preferences saved successfully!');
       setTimeout(() => setSuccess(''), 4000);
+
     } catch (err) {
       alert(err.response?.data?.message || 'Failed to save profile preferences.');
     } finally {
       setLoading(false);
     }
   };
+
 
   const TABS = [
     { id: 'preferences', label: '🏠 Preferences' },
@@ -206,17 +239,43 @@ export default function Profile() {
               </div>
             </div>
 
-            <h3 className="font-bold text-sm text-text-primary pt-2 border-t border-border">Commute Preferences</h3>
+            <h3 className="font-bold text-sm text-text-primary pt-2 border-t border-border">📍 Interactive Office Location & Commute Intelligence</h3>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Input
-                label="Work / Destination Area"
-                placeholder="e.g. Navrangpura"
+            <div className="space-y-4">
+              <InteractiveLocationPicker
+                label="Set Exact Work / Office Location on Map (Geoapify Places & Live Pin)"
                 value={prefs.work_area}
-                onChange={(e) => setPrefs({ ...prefs, work_area: e.target.value })}
+                onChange={(addressText, coords) => {
+                  setPrefs((prev) => {
+                    const newPrefs = { ...prev, work_area: addressText };
+                    // Persist immediately to MongoDB role_profile
+                    const payload = {
+                      max_budget: Number(newPrefs.max_budget) || null,
+                      rent_budget: Number(newPrefs.max_budget) || null,
+                      preferred_bhk: Number(newPrefs.preferred_bhk) || null,
+                      preferred_localities: newPrefs.preferred_localities
+                        ? newPrefs.preferred_localities.split(',').map((s) => s.trim()).filter(Boolean)
+                        : [],
+                      preferred_furnishing: newPrefs.preferred_furnishing,
+                      lifestyle_preference: newPrefs.lifestyle_preference,
+                      lifestyle_pref: newPrefs.lifestyle_preference,
+                      commute_mode: newPrefs.commute_mode,
+                      work_area: addressText,
+                      max_commute_minutes: Number(newPrefs.max_commute_minutes) || 45,
+                      commute_tolerance_minutes: Number(newPrefs.max_commute_minutes) || 45,
+                    };
+                    updateRoleProfile(payload).then((res) => {
+                      const updatedUser = res?.data?.user || res?.user || res?.data || res;
+                      if (updatedUser && updatedUser.email) setUser(updatedUser);
+                    }).catch(() => {});
+                    return newPrefs;
+                  });
+                }}
               />
+
+
               <Input
-                label="Max Commute Time (minutes)"
+                label="Max Commute Target (minutes)"
                 type="number"
                 min={5}
                 max={180}
@@ -224,6 +283,8 @@ export default function Profile() {
                 onChange={(e) => setPrefs({ ...prefs, max_commute_minutes: e.target.value })}
               />
             </div>
+
+
 
             <div>
               <label className="text-xs font-bold text-text-primary mb-1 block">Preferred Commute Mode</label>

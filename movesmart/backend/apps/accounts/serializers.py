@@ -60,8 +60,17 @@ class FindAccommodationProfileSerializer(serializers.Serializer):
     salary = serializers.FloatField(required=False, allow_null=True)
     work_or_college_location = _CoordinatesSerializer(required=False, allow_null=True)
     rent_budget = serializers.FloatField(required=False, allow_null=True)
+    max_budget = serializers.FloatField(required=False, allow_null=True)
+    preferred_bhk = serializers.IntegerField(required=False, allow_null=True)
+    preferred_localities = serializers.ListField(child=serializers.CharField(), required=False, allow_null=True)
+    preferred_furnishing = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    lifestyle_preference = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     lifestyle_pref = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    commute_mode = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    work_area = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     commute_tolerance_minutes = serializers.IntegerField(required=False, allow_null=True)
+    max_commute_minutes = serializers.IntegerField(required=False, allow_null=True)
+
 
 
 class PropertyOwnerProfileSerializer(serializers.Serializer):

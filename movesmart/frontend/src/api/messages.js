@@ -22,7 +22,11 @@ export const getConversationDetail = async (conversationId) => {
   return response.data;
 };
 
+export const getConversationById = getConversationDetail;
+
 export const sendMessageToConversation = async (conversationId, text) => {
   const response = await api.post(`/messages/conversations/${conversationId}/messages`, { text });
   return response.data;
 };
+
+export const sendMessage = sendMessageToConversation;

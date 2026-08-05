@@ -5,7 +5,8 @@ Every browse/search/bulk-search query that should return only approved listings 
 get_approved_listings() from this module — NOT re-implement the filter inline.
 """
 from datetime import datetime, timezone
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Tuple
+
 from bson import ObjectId
 from .connection import get_db
 
@@ -24,34 +25,80 @@ def _serialize(doc: Dict[str, Any]) -> Dict[str, Any]:
     return doc
 
 
-def get_approved_listings(filters: Optional[dict] = None) -> List[Dict[str, Any]]:
-    """Return listings with status='approved', optionally filtered.
-    This function is the single enforcement point for FR-3.
-
+def get_approved_listings_paginated(filters: Optional[dict] = None, page: int = 1, page_size: int = 24) -> Tuple[List[Dict[str, Any]], int]:
+    """Return paginated listings with status='approved' and total matching count.
+    
     Args:
-        filters: optional dict with keys: locality, bhk, deal_type, max_price, min_price.
+        filters: optional dict with search/locality/bhk/deal_type/price constraints.
+        page: page index (1-indexed).
+        page_size: number of items per page.
     """
     db = get_db()
     query: Dict[str, Any] = {"status": "approved"}
     
     if filters:
-        if filters.get("locality"):
-            query["locality"] = filters["locality"]
-        if filters.get("bhk"):
-            query["bhk"] = int(filters["bhk"])
-        if filters.get("deal_type"):
-            query["deal_type"] = filters["deal_type"]
+        # Flexible case-insensitive regex locality search
+        loc = filters.get("locality") or filters.get("search")
+        if loc and str(loc).strip():
+            clean_loc = str(loc).strip()
+            query["$or"] = [
+                {"locality": {"$regex": clean_loc, "$options": "i"}},
+                {"title": {"$regex": clean_loc, "$options": "i"}},
+                {"description": {"$regex": clean_loc, "$options": "i"}}
+            ]
         
+        # BHK filter
+        if filters.get("bhk") is not None and str(filters.get("bhk")).strip() != "":
+            try:
+                query["bhk"] = int(filters["bhk"])
+            except (ValueError, TypeError):
+                pass
+        
+        # Deal type filter (rent / buy)
+        deal_type = filters.get("deal_type")
+        if deal_type and str(deal_type).strip().lower() not in ["", "all"]:
+            query["deal_type"] = str(deal_type).strip().lower()
+        
+        # Price range filter
         price_query = {}
-        if filters.get("min_price") is not None:
-            price_query["$gte"] = float(filters["min_price"])
-        if filters.get("max_price") is not None:
-            price_query["$lte"] = float(filters["max_price"])
+        min_p = filters.get("min_price")
+        if min_p is not None and str(min_p).strip() != "":
+            try:
+                price_query["$gte"] = float(min_p)
+            except (ValueError, TypeError):
+                pass
+        
+        max_p = filters.get("max_price")
+        if max_p is not None and str(max_p).strip() != "":
+            try:
+                price_query["$lte"] = float(max_p)
+            except (ValueError, TypeError):
+                pass
+
         if price_query:
             query["price"] = price_query
 
-    cursor = db["listings"].find(query).sort("created_at", -1)
-    return [_serialize(doc) for doc in cursor]
+    total_count = db["listings"].count_documents(query)
+    
+    page = max(1, int(page))
+    page_size = max(1, min(100, int(page_size)))
+    skip = (page - 1) * page_size
+
+    cursor = db["listings"].find(query).sort("created_at", -1).skip(skip).limit(page_size)
+    listings = [_serialize(doc) for doc in cursor]
+
+    return listings, total_count
+
+
+def get_approved_listings(filters: Optional[dict] = None, limit: Optional[int] = None) -> List[Dict[str, Any]]:
+    """Return listings with status='approved', optionally filtered.
+    This function is the single enforcement point for FR-3.
+    """
+    listings, _ = get_approved_listings_paginated(filters, page=1, page_size=limit if limit else 2500)
+    return listings
+
+
+
 
 
 def get_owner_listings(owner_id: str) -> List[Dict[str, Any]]:

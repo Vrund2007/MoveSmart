@@ -1,12 +1,32 @@
 import api from '../lib/api';
 
+let listingsCache = null;
+let listingsCacheTime = 0;
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minute in-memory cache
+
+
 /**
  * Listings API Client Wrappers
  */
-export const getListings = async (params = {}) => {
+export const getListings = async (params = {}, forceRefresh = false) => {
+  const isDefaultFetch = !params || Object.keys(params).length === 0;
+  const now = Date.now();
+
+  if (!forceRefresh && isDefaultFetch && listingsCache && (now - listingsCacheTime < CACHE_TTL_MS)) {
+    return listingsCache;
+  }
+
   const response = await api.get('/listings', { params });
-  return response.data;
+  const data = response.data;
+
+  if (isDefaultFetch) {
+    listingsCache = data;
+    listingsCacheTime = now;
+  }
+
+  return data;
 };
+
 
 export const getMyListings = async () => {
   const response = await api.get('/listings/my');
