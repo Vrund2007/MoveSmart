@@ -138,7 +138,13 @@ export default function Dashboard() {
   const [savedItems, setSavedItems]           = useState([]);
   const [savedLoading, setSavedLoading]       = useState(false);
   const [costData, setCostData]               = useState(null);
-  const [costLocality, setCostLocality]       = useState('Vastrapur');
+  const [costFilters, setCostFilters]         = useState({
+    locality: 'Navrangpura',
+    bhk: 2,
+    householdType: 'bachelor',
+    lifestyle: 'balanced',
+    commuteMode: 'bike'
+  });
   const [costLoading, setCostLoading]         = useState(false);
   const [commuteData, setCommuteData]         = useState(null);
   const [commuteError, setCommuteError]       = useState('');
@@ -222,15 +228,24 @@ export default function Dashboard() {
     finally { setSavedLoading(false); }
   }, []);
 
-  const fetchCostData = useCallback(async (loc) => {
+  const fetchCostData = useCallback(async (overrides = {}) => {
     setCostLoading(true);
     try {
-      const budget = user?.role_profile?.max_budget || user?.role_profile?.rent_budget || 25000;
-      const res = await getCostEstimate(loc, budget);
+      const active = typeof overrides === 'string' ? { ...costFilters, locality: overrides } : { ...costFilters, ...overrides };
+      const budget = user?.role_profile?.max_budget || user?.role_profile?.rent_budget || 0;
+      const res = await getCostEstimate(
+        active.locality,
+        budget,
+        active.bhk,
+        active.householdType,
+        active.lifestyle,
+        active.commuteMode
+      );
       setCostData(res.data || res);
     } catch { /* ignore */ }
     finally { setCostLoading(false); }
-  }, [user]);
+  }, [user, costFilters]);
+
 
   const fetchCommuteData = async () => {
     setCommuteLoading(true);
@@ -262,9 +277,10 @@ export default function Dashboard() {
     const initialF = getInitialFiltersFromUrl();
     fetchApprovedListings(initialF, urlPage, false);
     fetchSavedListings();
-    fetchCostData('Vastrapur');
+    fetchCostData();
     fetchUpcomingVisits();
   }, [urlPage]);
+
 
 
 
@@ -643,29 +659,141 @@ export default function Dashboard() {
 
           {/* ── COST TAB ─────────────────────────────────────────────── */}
           {activeTab === 'cost' && (
-            <div className="space-y-6 max-w-xl mx-auto animate-fade-in">
-              <Card className="flex flex-col gap-4">
-                <h3 className="font-bold text-lg text-text-primary">Locality Cost Estimator</h3>
-                <div>
-                  <label className="text-xs font-semibold text-text-primary mb-1 block">Select Locality</label>
-                  <select
-                    value={costLocality}
-                    onChange={(e) => { setCostLocality(e.target.value); fetchCostData(e.target.value); }}
-                    className="w-full bg-surface border border-border rounded p-2 text-xs text-text-primary"
-                  >
-                    {['Vastrapur', 'Satellite', 'Bodakdev', 'Thaltej', 'Gota', 'Navrangpura'].map((l) => (
-                      <option key={l} value={l}>{l}</option>
-                    ))}
-                  </select>
+            <div className="space-y-6 max-w-2xl mx-auto animate-fade-in">
+              <Card className="space-y-4 bg-white border border-border">
+                <div className="flex justify-between items-center pb-3 border-b border-border">
+                  <div>
+                    <h3 className="font-bold text-lg text-text-primary">💡 Locality Cost-of-Living Intelligence</h3>
+                    <p className="text-xs text-text-secondary">Data-driven monthly expenditure model integrating real MongoDB market listings, utilities, food, and commute costs.</p>
+                  </div>
+                </div>
+
+                {/* Filter Controls Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5">
+                  {/* 1. Locality Select (43+ Localities) */}
+                  <div className="sm:col-span-2 md:col-span-3">
+                    <label className="text-xs font-bold text-text-primary mb-1 block">Select Locality / Neighborhood</label>
+                    <select
+                      value={costFilters.locality}
+                      onChange={(e) => {
+                        const updated = { ...costFilters, locality: e.target.value };
+                        setCostFilters(updated);
+                        fetchCostData(updated);
+                      }}
+                      className="w-full bg-surface border border-border rounded-lg p-2.5 text-xs text-text-primary outline-none focus:border-primary font-medium"
+                    >
+                      <optgroup label="Central Ahmedabad">
+                        {['Navrangpura', 'Paldi', 'Ellisbridge', 'Naranpura', 'Memnagar', 'Shahibaug'].map((l) => (
+                          <option key={l} value={l}>{l}</option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="West Ahmedabad & Prime Corridors">
+                        {['Bodakdev', 'Satellite', 'Vastrapur', 'Thaltej', 'Prahladnagar', 'Ambli', 'Vejalpur', 'Science City', 'Sindhu Bhavan'].map((l) => (
+                          <option key={l} value={l}>{l}</option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="North Ahmedabad & SG Highway">
+                        {['Gota', 'Chandkheda', 'Motera', 'Ghatlodia', 'Ranip'].map((l) => (
+                          <option key={l} value={l}>{l}</option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="Suburbs & Bopal Corridors">
+                        {['Bopal', 'South Bopal', 'Shela', 'Shilaj'].map((l) => (
+                          <option key={l} value={l}>{l}</option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="South & East Ahmedabad">
+                        {['Maninagar'].map((l) => (
+                          <option key={l} value={l}>{l}</option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="Gandhinagar & Tech Hubs">
+                        {['Infocity', 'GIFT City', 'Sargasan', 'Kudasan', 'Raysan', 'Sector 1-30 Gandhinagar'].map((l) => (
+                          <option key={l} value={l}>{l}</option>
+                        ))}
+                      </optgroup>
+                    </select>
+                  </div>
+
+                  {/* 2. BHK Size */}
+                  <div>
+                    <label className="text-[11px] font-bold text-text-primary mb-1 block">BHK Size</label>
+                    <select
+                      value={costFilters.bhk}
+                      onChange={(e) => {
+                        const updated = { ...costFilters, bhk: Number(e.target.value) };
+                        setCostFilters(updated);
+                        fetchCostData(updated);
+                      }}
+                      className="w-full bg-surface border border-border rounded-lg p-2 text-xs text-text-primary outline-none focus:border-primary"
+                    >
+                      <option value={1}>1 BHK</option>
+                      <option value={2}>2 BHK</option>
+                      <option value={3}>3 BHK</option>
+                      <option value={4}>4 BHK</option>
+                    </select>
+                  </div>
+
+                  {/* 3. Household Type */}
+                  <div>
+                    <label className="text-[11px] font-bold text-text-primary mb-1 block">Household Size</label>
+                    <select
+                      value={costFilters.householdType}
+                      onChange={(e) => {
+                        const updated = { ...costFilters, householdType: e.target.value };
+                        setCostFilters(updated);
+                        fetchCostData(updated);
+                      }}
+                      className="w-full bg-surface border border-border rounded-lg p-2 text-xs text-text-primary outline-none focus:border-primary"
+                    >
+                      <option value="bachelor">🧑 Single / Bachelor</option>
+                      <option value="couple">💑 Couple / Working Pair</option>
+                      <option value="family">👨‍👩‍👧‍👦 Family (3-4 members)</option>
+                    </select>
+                  </div>
+
+                  {/* 4. Lifestyle Tier */}
+                  <div>
+                    <label className="text-[11px] font-bold text-text-primary mb-1 block">Lifestyle Preference</label>
+                    <select
+                      value={costFilters.lifestyle}
+                      onChange={(e) => {
+                        const updated = { ...costFilters, lifestyle: e.target.value };
+                        setCostFilters(updated);
+                        fetchCostData(updated);
+                      }}
+                      className="w-full bg-surface border border-border rounded-lg p-2 text-xs text-text-primary outline-none focus:border-primary"
+                    >
+                      <option value="budget">🪙 Budget / Minimalist</option>
+                      <option value="balanced">⚖️ Standard / Balanced</option>
+                      <option value="premium">👑 Premium / Luxury</option>
+                    </select>
+                  </div>
                 </div>
               </Card>
+
               {costLoading ? (
-                <div className="py-12 text-center"><LoadingSpinner size="md" message="Estimating monthly breakdown..." /></div>
+                <div className="py-16 text-center">
+                  <LoadingSpinner size="lg" message="Computing data-driven cost-of-living model..." />
+                </div>
               ) : costData ? (
-                <CostBreakdownTable breakdown={costData.breakdown} locality={costData.locality} disclaimer={costData.disclaimer} />
+                <CostBreakdownTable
+                  breakdown={costData.breakdown}
+                  locality={costData.locality}
+                  bhk={costData.bhk || costFilters.bhk}
+                  householdType={costData.household_type || costFilters.householdType}
+                  lifestyle={costData.lifestyle || costFilters.lifestyle}
+                  commuteMode={costData.commute_mode || costFilters.commuteMode}
+                  marketStats={costData.real_market_stats}
+                  totalMonthly={costData.estimated_total_monthly}
+                  costIndexPct={costData.cost_index_pct}
+                  insights={costData.insights}
+                  disclaimer={costData.disclaimer}
+                />
               ) : null}
             </div>
           )}
+
 
           {/* ── COMMUTE TAB ──────────────────────────────────────────── */}
           {activeTab === 'commute' && (
