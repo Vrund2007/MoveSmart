@@ -4,8 +4,10 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from apps.common.responses import api_response
 from db import listings_repo
+from apps.accounts import repository
 from .scoring import score_localities
 from .ranking import rank_listings
+
 
 
 class AreaRecommendationsView(APIView):
@@ -13,7 +15,11 @@ class AreaRecommendationsView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        profile = request.data
+        user_doc = repository.get_user_by_id(request.user.id) if hasattr(request.user, 'id') and request.user.id else None
+        role_profile = user_doc.get("role_profile", {}) if user_doc else {}
+
+        profile = {**role_profile, **(request.data or {})}
+
         approved_listings = listings_repo.get_approved_listings()
         
         # Aggregate unique localities from approved listings
@@ -35,3 +41,4 @@ class AreaRecommendationsView(APIView):
 
         results = score_localities(profile, localities_list)
         return api_response(data=results, message="Area recommendations computed.")
+

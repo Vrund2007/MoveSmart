@@ -19,6 +19,8 @@ import AssistantWidget from '../components/assistant/AssistantWidget';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import LoadingSpinner from '../components/common/LoadingSpinner';
+import InteractiveLocationPicker from '../components/common/InteractiveLocationPicker';
+
 
 // Lazy-loaded page-level components for new tabs
 import VisitScheduler from './VisitScheduler';
@@ -82,6 +84,7 @@ function QuickAction({ icon, label, desc, onClick, color = 'bg-primary/10 text-p
         <p className="text-xs font-bold text-text-primary group-hover:text-primary transition-colors">{label}</p>
         <p className="text-[10px] text-text-secondary mt-0.5 leading-relaxed">{desc}</p>
       </div>
+
     </button>
   );
 }
@@ -92,13 +95,46 @@ export default function Dashboard() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const activeTab = searchParams.get('tab') || 'hub';
-  const setActiveTab = (tab) => setSearchParams({ tab });
+  const urlPage = parseInt(searchParams.get('page') || sessionStorage.getItem('last_browse_page') || '1', 10);
+
+  const setActiveTab = (tab) => {
+    const params = { tab };
+    if (tab === 'browse') {
+      const pageToUse = sessionStorage.getItem('last_browse_page') || '1';
+      params.page = pageToUse;
+    }
+    setSearchParams(params);
+  };
+
+  const getInitialFiltersFromUrl = useCallback(() => {
+    let savedSession = {};
+    try {
+      savedSession = JSON.parse(sessionStorage.getItem('active_browse_filters') || '{}');
+    } catch {
+      savedSession = {};
+    }
+
+    const locality = searchParams.get('locality') ?? savedSession.locality ?? '';
+    const bhk = searchParams.get('bhk') ?? savedSession.bhk ?? '';
+    const deal_type = searchParams.get('deal_type') ?? savedSession.deal_type ?? '';
+    const max_price = searchParams.get('max_price') ?? savedSession.max_price ?? '';
+
+    const filters = {};
+    if (locality) filters.locality = locality;
+    if (bhk) filters.bhk = bhk;
+    if (deal_type && deal_type !== 'all') filters.deal_type = deal_type;
+    if (max_price) filters.max_price = max_price;
+    return filters;
+  }, [searchParams]);
+
 
   // State
   const [recommendations, setRecommendations] = useState([]);
   const [recLoading, setRecLoading]           = useState(false);
   const [listings, setListings]               = useState([]);
   const [listingsLoading, setListingsLoading] = useState(false);
+  const [paginationMeta, setPaginationMeta]   = useState({ page: urlPage, total_pages: 1, total_count: 0, has_next: false });
+  const [currentFilters, setCurrentFilters]   = useState(getInitialFiltersFromUrl);
   const [savedItems, setSavedItems]           = useState([]);
   const [savedLoading, setSavedLoading]       = useState(false);
   const [costData, setCostData]               = useState(null);
@@ -115,9 +151,13 @@ export default function Dashboard() {
     try {
       const userProfile = user?.role_profile || {};
       const res = await getAreaRecommendations({
+        max_budget: userProfile.max_budget || userProfile.rent_budget || 25000,
         rent_budget: userProfile.max_budget || userProfile.rent_budget || 25000,
+        max_commute_minutes: userProfile.max_commute_minutes || userProfile.commute_tolerance_minutes || 30,
         commute_tolerance_minutes: userProfile.max_commute_minutes || userProfile.commute_tolerance_minutes || 30,
-        lifestyle_pref: userProfile.lifestyle_preference || userProfile.lifestyle_pref || 'quiet'
+        lifestyle_preference: userProfile.lifestyle_preference || userProfile.lifestyle_pref || 'quiet',
+        lifestyle_pref: userProfile.lifestyle_preference || userProfile.lifestyle_pref || 'quiet',
+        preferred_localities: userProfile.preferred_localities || []
       });
       const data = res.data || res;
       setRecommendations(Array.isArray(data) ? data : []);
@@ -125,15 +165,52 @@ export default function Dashboard() {
     finally { setRecLoading(false); }
   }, [user]);
 
-  const fetchApprovedListings = useCallback(async (appliedFilters = {}) => {
+  const fetchApprovedListings = useCallback(async (filters, pageNum, append = false) => {
+    const activeFilters = filters !== undefined ? filters : currentFilters;
+    const targetPage = pageNum || urlPage || 1;
+
     setListingsLoading(true);
     try {
-      const res = await getListings(appliedFilters);
+      const res = await getListings({ ...activeFilters, page: targetPage, page_size: 24 });
       const data = res.data || res;
-      setListings(Array.isArray(data) ? data : []);
+      const meta = res.meta || { page: targetPage, total_pages: 1, total_count: Array.isArray(data) ? data.length : 0, has_next: false };
+      
+      const newItems = Array.isArray(data) ? data : [];
+      setListings((prev) => (append ? [...prev, ...newItems] : newItems));
+      setPaginationMeta(meta);
+      setCurrentFilters(activeFilters);
+
+      // Persist active page & filters in sessionStorage & URL searchParams
+      sessionStorage.setItem('last_browse_page', targetPage.toString());
+      sessionStorage.setItem('active_browse_filters', JSON.stringify(activeFilters));
+      
+      if (activeTab === 'browse') {
+        const cleanParams = { tab: 'browse', page: targetPage.toString() };
+        if (activeFilters.locality) cleanParams.locality = activeFilters.locality;
+        if (activeFilters.bhk) cleanParams.bhk = activeFilters.bhk;
+        if (activeFilters.deal_type) cleanParams.deal_type = activeFilters.deal_type;
+        if (activeFilters.max_price) cleanParams.max_price = activeFilters.max_price;
+        setSearchParams(cleanParams);
+      }
+
+      // Background pre-fetch next page silently while user watches current page
+      if (meta.has_next) {
+        setTimeout(() => {
+          getListings({ ...activeFilters, page: targetPage + 1, page_size: 24 }).catch(() => {});
+        }, 1200);
+      }
     } catch { /* ignore */ }
     finally { setListingsLoading(false); }
-  }, []);
+  }, [urlPage, activeTab, setSearchParams, currentFilters]);
+
+  const handleSelectLocalityFromCard = useCallback((localityName) => {
+    const newFilters = { ...currentFilters, locality: localityName };
+    setCurrentFilters(newFilters);
+    setActiveTab('browse');
+    fetchApprovedListings(newFilters, 1, false);
+    setSearchParams({ tab: 'browse', locality: localityName, page: '1' });
+  }, [currentFilters, fetchApprovedListings, setSearchParams]);
+
 
   const fetchSavedListings = useCallback(async () => {
     setSavedLoading(true);
@@ -159,12 +236,17 @@ export default function Dashboard() {
     setCommuteLoading(true);
     setCommuteError('');
     try {
-      const res = await getCommuteEstimate('Vastrapur', 'SG Highway, Ahmedabad');
+      const originLocality = currentFilters.locality || user?.role_profile?.preferred_localities?.[0] || 'Bodakdev';
+      const destOffice = user?.role_profile?.work_area || 'Navrangpura, Ahmedabad';
+      const commuteMode = (user?.role_profile?.commute_mode || 'Car').toLowerCase();
+
+      const res = await getCommuteEstimate(originLocality, destOffice, commuteMode);
       setCommuteData(res.data || res);
     } catch {
       setCommuteError('Commute data temporarily unavailable.');
     } finally { setCommuteLoading(false); }
   };
+
 
   const fetchUpcomingVisits = useCallback(async () => {
     try {
@@ -177,11 +259,14 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchRecommendations();
-    fetchApprovedListings();
+    const initialF = getInitialFiltersFromUrl();
+    fetchApprovedListings(initialF, urlPage, false);
     fetchSavedListings();
     fetchCostData('Vastrapur');
     fetchUpcomingVisits();
-  }, [fetchRecommendations, fetchApprovedListings, fetchSavedListings, fetchCostData, fetchUpcomingVisits]);
+  }, [urlPage]);
+
+
 
   const handleToggleBookmark = async (listingId) => {
     try {
@@ -417,9 +502,16 @@ export default function Dashboard() {
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   {recommendations.map((item, index) => (
-                    <LocalityCard key={item.locality} item={item} rank={index + 1} isTop={index === 0} />
+                    <LocalityCard
+                      key={item.locality}
+                      item={item}
+                      rank={index + 1}
+                      isTop={index === 0}
+                      onSelectLocality={handleSelectLocalityFromCard}
+                    />
                   ))}
                 </div>
+
               )}
             </div>
           )}
@@ -427,33 +519,86 @@ export default function Dashboard() {
           {/* ── BROWSE TAB ───────────────────────────────────────────── */}
           {activeTab === 'browse' && (
             <div className="space-y-6 animate-fade-in">
-              <ListingFilters onFilterChange={(f) => fetchApprovedListings(f)} />
-              {listingsLoading ? (
+              <ListingFilters initialFilters={currentFilters} onFilterChange={(f) => fetchApprovedListings(f, 1, false)} />
+
+              
+              {/* Pagination Status Bar */}
+              <div className="flex justify-between items-center text-xs text-text-secondary px-1">
+                <span>
+                  Showing <strong className="text-text-primary">{listings.length}</strong> of{' '}
+                  <strong className="text-primary">{paginationMeta.total_count || listings.length}</strong> properties
+                </span>
+                {paginationMeta.total_pages > 1 && (
+                  <span className="font-semibold text-text-primary">
+                    Page {paginationMeta.page} of {paginationMeta.total_pages}
+                  </span>
+                )}
+              </div>
+
+              {listingsLoading && listings.length === 0 ? (
                 <div className="py-16 text-center"><LoadingSpinner size="lg" message="Fetching approved listings..." /></div>
               ) : listings.length === 0 ? (
                 <Card className="text-center py-12 text-xs text-text-secondary">No approved listings found matching your search filters.</Card>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {listings.map((listing) => {
-                    const isSaved = savedItems.some((s) => s.listing_id === listing._id || s.listing?._id === listing._id);
-                    return (
-                      <div key={listing._id} className="relative group">
-                        <ListingCard listing={listing} onClick={() => navigate(`/listings/${listing._id}`)} />
-                        <button
-                          onClick={(e) => { e.stopPropagation(); handleToggleBookmark(listing._id); }}
-                          className={`absolute top-3 right-3 p-2 rounded-full border text-xs shadow-sm transition-all ${
-                            isSaved ? 'bg-amber-100 text-warning border-amber-300 font-bold' : 'bg-white text-text-secondary border-border hover:border-primary'
-                          }`}
-                        >
-                          {isSaved ? '★ Saved' : '☆ Save'}
-                        </button>
-                      </div>
-                    );
-                  })}
+                <div className="space-y-8">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {listings.map((listing) => {
+                      const isSaved = savedItems.some((s) => s.listing_id === listing._id || s.listing?._id === listing._id);
+                      return (
+                        <div key={listing._id} className="relative group">
+                          <ListingCard listing={listing} onClick={() => navigate(`/listings/${listing._id}`)} />
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleToggleBookmark(listing._id); }}
+                            className={`absolute top-3 right-3 p-2 rounded-full border text-xs shadow-sm transition-all ${
+                              isSaved ? 'bg-amber-100 text-warning border-amber-300 font-bold' : 'bg-white text-text-secondary border-border hover:border-primary'
+                            }`}
+                          >
+                            {isSaved ? '★ Saved' : '☆ Save'}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Pagination Controls & Load More */}
+                  <div className="flex flex-col sm:flex-row justify-between items-center gap-4 bg-white p-4 rounded-xl border border-border">
+                    <div className="flex items-center gap-2">
+                      <button
+                        disabled={!paginationMeta.has_prev || listingsLoading}
+                        onClick={() => fetchApprovedListings(currentFilters, paginationMeta.page - 1, false)}
+                        className="px-3 py-1.5 rounded-lg border border-border text-xs font-bold text-text-primary disabled:opacity-40 disabled:cursor-not-allowed hover:bg-surface transition-colors"
+                      >
+                        ← Previous Page
+                      </button>
+                      <span className="text-xs font-bold text-text-secondary px-2">
+                        Page {paginationMeta.page} / {paginationMeta.total_pages}
+                      </span>
+                      <button
+                        disabled={!paginationMeta.has_next || listingsLoading}
+                        onClick={() => fetchApprovedListings(currentFilters, paginationMeta.page + 1, false)}
+                        className="px-3 py-1.5 rounded-lg border border-border text-xs font-bold text-text-primary disabled:opacity-40 disabled:cursor-not-allowed hover:bg-surface transition-colors"
+                      >
+                        Next Page →
+                      </button>
+                    </div>
+
+                    {paginationMeta.has_next && (
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        loading={listingsLoading}
+                        onClick={() => fetchApprovedListings(currentFilters, paginationMeta.page + 1, true)}
+                        className="text-xs font-bold px-6 py-2"
+                      >
+                        Load More Properties (+24)
+                      </Button>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
           )}
+
 
           {/* ── SAVED TAB ────────────────────────────────────────────── */}
           {activeTab === 'saved' && (
@@ -524,21 +669,81 @@ export default function Dashboard() {
 
           {/* ── COMMUTE TAB ──────────────────────────────────────────── */}
           {activeTab === 'commute' && (
-            <div className="space-y-6 max-w-xl mx-auto animate-fade-in">
-              <Card className="flex flex-col gap-4">
-                <h3 className="font-bold text-lg text-text-primary">Commute Calculator</h3>
-                <p className="text-xs text-text-secondary">Calculate estimated travel duration from your target locality to office or university hubs.</p>
-                <Button variant="primary" size="sm" onClick={fetchCommuteData} loading={commuteLoading}>Compute Travel Time</Button>
+            <div className="space-y-6 max-w-2xl mx-auto animate-fade-in">
+              <Card className="space-y-4 bg-white border border-border">
+                <div className="flex justify-between items-center pb-3 border-b border-border">
+                  <div>
+                    <h3 className="font-bold text-lg text-text-primary">🚗 Premium Commute Intelligence Matrix</h3>
+                    <p className="text-xs text-text-secondary">Calculate real-time travel durations, distances, and monthly transit costs from any origin to your office.</p>
+                  </div>
+                </div>
+
+                {/* Saved Office Destination Validation Status */}
+                {user?.role_profile?.work_area ? (
+                  <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex justify-between items-center text-xs">
+                    <div>
+                      <span className="text-[10px] font-extrabold uppercase text-emerald-800 tracking-wider block">📍 Saved Destination Office</span>
+                      <span className="font-bold text-emerald-950 text-xs">{user.role_profile.work_area}</span>
+                    </div>
+                    <button
+                      onClick={() => setActiveTab('profile')}
+                      className="text-[11px] font-bold text-emerald-700 hover:underline"
+                    >
+                      Edit Office Location →
+                    </button>
+                  </div>
+                ) : (
+                  <div className="bg-amber-50 border border-amber-300 rounded-xl p-4 flex justify-between items-center text-xs text-amber-900">
+                    <div>
+                      <span className="font-extrabold block text-sm">⚠️ No Office Location Saved in Profile</span>
+                      <span className="text-xs text-amber-800">Please set your office location in your profile first to compute accurate commute matrices.</span>
+                    </div>
+                    <Button variant="primary" size="sm" onClick={() => setActiveTab('profile')}>
+                      Go to Profile Settings →
+                    </Button>
+                  </div>
+                )}
+
+                {/* Interactive Origin Location Selector */}
+                <div className="pt-2">
+                  <InteractiveLocationPicker
+                    label="Select Starting Origin Location (Apartment / Neighborhood / Pin 📍)"
+                    value={currentFilters.locality || user?.role_profile?.preferred_localities?.[0] || 'Bodakdev, Ahmedabad'}
+                    showSaveButton={false}
+                    onChange={(selectedLoc) => {
+                      setCurrentFilters({ ...currentFilters, locality: selectedLoc });
+                    }}
+                  />
+                </div>
+
+
+                <Button
+                  variant="primary"
+                  size="md"
+                  onClick={fetchCommuteData}
+                  loading={commuteLoading}
+                  className="w-full font-bold shadow-md"
+                >
+                  🚀 Compute Travel Matrix & Multi-Mode Insights
+                </Button>
               </Card>
+
               {commuteLoading ? (
-                <div className="py-12 text-center"><LoadingSpinner size="md" message="Calculating commute matrix..." /></div>
+                <div className="py-12 text-center"><LoadingSpinner size="lg" message="Calculating Geoapify multi-mode commute matrix..." /></div>
               ) : commuteError ? (
                 <Card className="text-center py-6 text-xs text-warning bg-amber-50 border-amber-200">{commuteError}</Card>
               ) : commuteData ? (
-                <CommutePanel durationMinutes={commuteData.duration_minutes || 25} distanceKm={commuteData.distance_km || 8.5} mode={commuteData.mode || 'driving'} />
+                <CommutePanel
+                  durationMinutes={commuteData.duration_minutes || 20}
+                  distanceKm={commuteData.distance_km || 7.5}
+                  mode={commuteData.mode || 'driving'}
+                  originLocality={commuteData.origin_locality || currentFilters.locality || 'Bodakdev'}
+                  destOffice={commuteData.destination || user?.role_profile?.work_area || 'Navrangpura'}
+                />
               ) : null}
             </div>
           )}
+
 
           {/* ── PROFILE TAB ──────────────────────────────────────────── */}
           {activeTab === 'profile' && <Profile />}

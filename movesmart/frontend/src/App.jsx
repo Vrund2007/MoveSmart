@@ -16,8 +16,19 @@ import SavedListings from './pages/SavedListings';
 import OwnerDashboard from './pages/OwnerDashboard';
 import BrokerDashboard from './pages/BrokerDashboard';
 import CompanyDashboard from './pages/CompanyDashboard';
+import AdminDashboard from './pages/AdminDashboard';
 import AdminReviewQueue from './pages/AdminReviewQueue';
 import LoadingSpinner from './components/common/LoadingSpinner';
+
+// Phase 13 — Shared Platform Pages
+import Notifications from './pages/Notifications';
+import Messages from './pages/Messages';
+import Calendar from './pages/Calendar';
+import Documents from './pages/Documents';
+import Search from './pages/Search';
+import Reports from './pages/Reports';
+import Activity from './pages/Activity';
+import Settings from './pages/Settings';
 
 // Helper to get default dashboard path for a role
 export function getRoleDashboard(role) {
@@ -26,7 +37,7 @@ export function getRoleDashboard(role) {
     case 'property_owner':     return '/owner';
     case 'broker':             return '/broker';
     case 'company_hr':         return '/company';
-    case 'admin':              return '/admin/review';
+    case 'admin':              return '/admin/dashboard';
     default:                   return '/choose-your-journey';
   }
 }
@@ -154,7 +165,23 @@ function App() {
               }
             />
 
-            {/* Admin Review Queue — Provisioned admins only (FR-2) */}
+            {/* Super Admin Platform Routes — Provisioned admins only (FR-2) */}
+            <Route
+              path="/admin"
+              element={
+                <ProtectedRoute allowedRoles={['admin']}>
+                  <AdminDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/dashboard"
+              element={
+                <ProtectedRoute allowedRoles={['admin']}>
+                  <AdminDashboard />
+                </ProtectedRoute>
+              }
+            />
             <Route
               path="/admin/review"
               element={
@@ -163,6 +190,16 @@ function App() {
                 </ProtectedRoute>
               }
             />
+
+            {/* Phase 13 — Shared Platform Routes */}
+            <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
+            <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
+            <Route path="/calendar" element={<ProtectedRoute><Calendar /></ProtectedRoute>} />
+            <Route path="/documents" element={<ProtectedRoute><Documents /></ProtectedRoute>} />
+            <Route path="/search" element={<ProtectedRoute><Search /></ProtectedRoute>} />
+            <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
+            <Route path="/activity" element={<ProtectedRoute><Activity /></ProtectedRoute>} />
+            <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
 
             {/* Fallback */}
             <Route path="*" element={<Navigate to="/" replace />} />

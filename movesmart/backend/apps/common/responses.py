@@ -8,7 +8,8 @@ def api_response(
     data: Optional[Any] = None,
     message: str = "Success",
     status_code: int = status.HTTP_200_OK,
-    errors: Optional[Dict[str, Any]] = None
+    errors: Optional[Dict[str, Any]] = None,
+    meta: Optional[Dict[str, Any]] = None
 ) -> Response:
     """Generate a standardized JSON API response structure.
     
@@ -17,6 +18,7 @@ def api_response(
         message: Human-readable status message.
         status_code: HTTP status code.
         errors: Error details if operation failed.
+        meta: Additional metadata (e.g. pagination stats).
         
     Returns:
         DRF Response object with unified structure.
@@ -27,4 +29,7 @@ def api_response(
         "data": data if data is not None else {},
         "errors": errors if errors is not None else {}
     }
+    if meta is not None:
+        payload["meta"] = meta
     return Response(payload, status=status_code)
+

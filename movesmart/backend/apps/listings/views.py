@@ -22,38 +22,72 @@ class ListingsView(APIView):
         return [IsAuthenticated(), IsOwnerOrBroker()]
 
     def get(self, request):
+        try:
+            page = int(request.query_params.get('page', 1))
+        except (ValueError, TypeError):
+            page = 1
+
+        try:
+            page_size = int(request.query_params.get('page_size', 24))
+        except (ValueError, TypeError):
+            page_size = 24
+
         filters = {
             'locality': request.query_params.get('locality'),
             'bhk': request.query_params.get('bhk'),
             'deal_type': request.query_params.get('deal_type'),
             'min_price': request.query_params.get('min_price'),
             'max_price': request.query_params.get('max_price'),
+            'search': request.query_params.get('search'),
         }
         filters = {k: v for k, v in filters.items() if v is not None}
 
-        listings = listings_repo.get_approved_listings(filters)
+        listings, total_count = listings_repo.get_approved_listings_paginated(
+            filters, page=page, page_size=page_size
+        )
 
-        # Enrich listings with ML inference outputs gracefully
+        # Enrich rental listings with ML rent inference outputs efficiently if missing
         enriched = []
         for item in listings:
             item_data = dict(item)
-            try:
-                rent_pred = rent_model.predict_fair_price(item_data)
-                if rent_pred:
-                    item_data['predicted_price_range'] = rent_pred
-            except Exception:
-                pass
+
+            if not item_data.get('predicted_price_range'):
+                try:
+                    pred = rent_model.predict_fair_price(item_data)
+                    if pred:
+                        item_data['predicted_price_range'] = pred
+                except Exception:
+                    pass
+
+
 
             try:
                 anomaly_pred = anomaly_model.predict_suspicious(item_data)
                 if anomaly_pred:
                     item_data['verification_flags'] = anomaly_pred
+                    item_data['trust_score'] = anomaly_pred
             except Exception:
-                pass
+                item_data.setdefault('trust_score', item_data.get('verification_flags'))
 
             enriched.append(item_data)
 
-        return api_response(data=enriched, message="Listings retrieved successfully.")
+
+        total_pages = (total_count + page_size - 1) // page_size if page_size > 0 else 1
+
+        return api_response(
+            data=enriched,
+            message="Listings retrieved successfully.",
+            meta={
+                "page": page,
+                "page_size": page_size,
+                "total_count": total_count,
+                "total_pages": total_pages,
+                "has_next": page < total_pages,
+                "has_prev": page > 1,
+            }
+        )
+
+
 
     def post(self, request):
         serializer = ListingCreateSerializer(data=request.data)
@@ -105,19 +139,27 @@ class ListingDetailView(APIView):
             if not user_id or (listing.get('owner_id') != user_id and getattr(request.user, 'role', None) != UserRoles.ADMIN):
                 return api_response(message="Listing not found.", status_code=status.HTTP_404_NOT_FOUND)
 
-        # Optional ML enrichment
+        # Optional ML enrichment (AI Valuation Signal)
         item_data = dict(listing)
         try:
-            item_data['rent_prediction'] = rent_model.predict_fair_price(item_data)
+            pred = rent_model.predict_fair_price(item_data)
+            if pred:
+                item_data['predicted_price_range'] = pred
+                item_data['rent_prediction'] = pred
         except Exception:
-            item_data['rent_prediction'] = None
+            item_data['rent_prediction'] = item_data.get('predicted_price_range')
+
+
 
         try:
             item_data['trust_score'] = anomaly_model.predict_suspicious(item_data)
+            if item_data['trust_score']:
+                item_data['verification_flags'] = item_data['trust_score']
         except Exception:
-            item_data['trust_score'] = None
+            item_data['trust_score'] = item_data.get('verification_flags')
 
         return api_response(data=item_data, message="Listing retrieved successfully.")
+
 
     def put(self, request, listing_id):
         listing = listings_repo.get_listing_by_id(listing_id, include_non_approved=True)

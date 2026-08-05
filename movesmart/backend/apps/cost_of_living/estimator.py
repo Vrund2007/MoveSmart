@@ -7,7 +7,11 @@ def estimate_cost_of_living(locality: str, rent_budget: float = 15000.0) -> Dict
     
     All figures returned are directional estimates, not measured facts (Rules.md §3).
     """
-    base_rent = float(rent_budget) if rent_budget else 15000.0
+    raw_budget = float(rent_budget) if rent_budget else 15000.0
+    
+    # If raw_budget is a purchase price (> 150,000 INR), cap to a realistic monthly rent estimate (30,000 INR)
+    base_rent = 30000.0 if raw_budget > 150000.0 else raw_budget
+
     food_est = round(base_rent * 0.4, 2)
     transport_est = round(base_rent * 0.15, 2)
     utilities_est = round(base_rent * 0.12, 2)
@@ -28,3 +32,4 @@ def estimate_cost_of_living(locality: str, rent_budget: float = 15000.0) -> Dict
         },
         "estimated_total_monthly": total_est
     }
+

@@ -10,39 +10,54 @@ os.makedirs(ARTIFACT_DIR, exist_ok=True)
 MODEL_PATH = os.path.join(ARTIFACT_DIR, 'suspicious_listing_model.pkl')
 
 
-def generate_synthetic_data(samples=500):
-    """Generate benchmark training dataset with normal and anomalous listings."""
+def load_training_data():
+    """Load training features from MongoDB listings or generate benchmark dataset."""
     X = []
+    try:
+        import sys
+        backend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+        if backend_dir not in sys.path:
+            sys.path.insert(0, backend_dir)
+        from db.connection import get_db
+        from ml.shared.feature_engineering import prepare_features
 
-    # Normal regional listings
-    for _ in range(samples):
-        bhk = random.choice([1, 2, 3, 4])
-        area = bhk * 450 + random.randint(-50, 150)
-        base_rent = random.choice([16000, 18000, 22000, 25000, 30000, 32000])
-        price = base_rent + (bhk * 3000) + random.randint(-2000, 2000)
-        price_per_sqft = price / float(area)
-        furnishing = random.choice([0.0, 1.0, 2.0])
-        amenities = random.randint(1, 8)
-        loc_code = random.randint(1, 7)
-        X.append([float(bhk), float(area), float(price), float(price_per_sqft), float(furnishing), float(amenities), float(loc_code)])
+        db = get_db()
+        docs = list(db['listings'].find({'status': 'approved'}))
+        for doc in docs:
+            f = prepare_features(doc)
+            if f:
+                X.append(f)
+        print(f"Loaded {len(X)} real listing feature vectors from MongoDB.")
+    except Exception as e:
+        print(f"MongoDB data loading fallback: {e}")
 
-    # Add a few clear anomalies (e.g. 4 BHK 2000 sqft for ₹3,000)
-    for _ in range(30):
-        bhk = random.choice([3, 4])
-        area = 2000.0
-        price = 4000.0  # Suspiciously low price
-        price_per_sqft = price / area
-        X.append([float(bhk), float(area), float(price), float(price_per_sqft), 2.0, 8.0, 3.0])
+    if len(X) < 50:
+        X = []
+        # Realistic Rent samples
+        for _ in range(400):
+            bhk = random.choice([1, 2, 3, 4])
+            area = max(500.0, bhk * 550.0 + random.randint(-50, 150))
+            price = float(random.choice([12000, 15000, 18000, 22000, 28000, 35000, 45000]))
+            pp_sqft = price / area
+            X.append([float(bhk), float(area), float(price), float(pp_sqft), 1.0, 4.0, 3.0])
+
+        # Realistic Sale samples
+        for _ in range(400):
+            bhk = random.choice([2, 3, 4])
+            area = max(600.0, bhk * 600.0 + random.randint(-50, 200))
+            price = float(random.choice([3500000, 4500000, 6500000, 8500000, 12000000, 18000000]))
+            pp_sqft = price / area
+            X.append([float(bhk), float(area), float(price), float(pp_sqft), 1.0, 4.0, 3.0])
 
     return np.array(X)
 
 
 def train():
-    print("Generating offline training dataset for Isolation Forest anomaly detector...")
-    X = generate_synthetic_data(600)
+    print("Preparing training dataset for Isolation Forest anomaly detector...")
+    X = load_training_data()
 
-    print("Training Isolation Forest model...")
-    clf = IsolationForest(n_estimators=100, contamination=0.08, random_state=42)
+    print(f"Training Isolation Forest model on {len(X)} feature vectors...")
+    clf = IsolationForest(n_estimators=100, contamination=0.03, random_state=42)
     clf.fit(X)
 
     with open(MODEL_PATH, 'wb') as f:
@@ -53,3 +68,4 @@ def train():
 
 if __name__ == '__main__':
     train()
+

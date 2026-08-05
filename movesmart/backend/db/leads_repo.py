@@ -4,10 +4,13 @@ from typing import List, Dict, Any, Optional
 from bson import ObjectId
 from .connection import get_db
 
-VALID_STATUSES = {"new", "contacted", "converted", "lost"}
+VALID_STATUSES = {"new", "qualified", "contacted", "visit_scheduled", "negotiation", "converted", "lost"}
 ALLOWED_TRANSITIONS = {
-    "new": {"contacted", "lost"},
-    "contacted": {"converted", "lost"},
+    "new": {"qualified", "contacted", "visit_scheduled", "negotiation", "converted", "lost"},
+    "qualified": {"contacted", "visit_scheduled", "negotiation", "converted", "lost"},
+    "contacted": {"visit_scheduled", "negotiation", "converted", "lost"},
+    "visit_scheduled": {"negotiation", "converted", "lost"},
+    "negotiation": {"converted", "lost"},
     "converted": set(),
     "lost": set()
 }
@@ -100,3 +103,35 @@ def update_lead_status(lead_id: str, broker_id: str, new_status: str) -> bool:
         {"$set": {"lead_status": new_status, "updated_at": now}}
     )
     return result.modified_count > 0
+
+
+def update_lead_details(lead_id: str, broker_id: str, update_data: dict) -> Optional[Dict[str, Any]]:
+    """Update lead priority, notes, or tags."""
+    db = get_db()
+    try:
+        l_oid = ObjectId(lead_id)
+        b_oid = ObjectId(broker_id)
+    except Exception:
+        return None
+
+    payload = {}
+    if "priority" in update_data and update_data["priority"] in {"low", "medium", "high"}:
+        payload["priority"] = update_data["priority"]
+    if "tags" in update_data:
+        payload["tags"] = update_data["tags"]
+
+    now = datetime.now(timezone.utc)
+    payload["updated_at"] = now
+
+    update_op: Dict[str, Any] = {"$set": payload}
+    if "note" in update_data and update_data["note"]:
+        note_entry = f"[{now.strftime('%Y-%m-%d %H:%M')}] {update_data['note'].strip()}"
+        update_op["$push"] = {"notes": note_entry}
+
+    result = db["leads"].find_one_and_update(
+        {"_id": l_oid, "broker_id": b_oid},
+        update_op,
+        return_document=True
+    )
+    return _serialize(result) if result else None
+

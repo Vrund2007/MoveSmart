@@ -73,13 +73,21 @@ def set_role(user_id: str, role: str) -> dict:
 
 
 def update_role_profile(user_id: str, profile_data: dict) -> dict:
-    """Update role_profile subdocument for a user. Returns updated user (without password_hash)."""
+    """Update role_profile subdocument for a user (merges profile_data with existing role_profile). Returns updated user."""
     db = get_db()
+    existing_user = db['users'].find_one({'_id': ObjectId(user_id)}, {'role_profile': 1})
+    current_profile = (existing_user.get('role_profile') or {}) if existing_user else {}
+    
+    # Clean null/empty keys if not explicitly provided
+    clean_data = {k: v for k, v in profile_data.items() if v is not None}
+    merged_profile = {**current_profile, **clean_data}
+
     db['users'].update_one(
         {'_id': ObjectId(user_id)},
-        {'$set': {'role_profile': profile_data, 'updated_at': _now()}}
+        {'$set': {'role_profile': merged_profile, 'updated_at': _now()}}
     )
     return get_user_by_id(user_id)
+
 
 
 def _serialize_user(doc: dict) -> dict:

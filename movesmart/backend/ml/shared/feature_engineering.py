@@ -29,16 +29,33 @@ def prepare_features(listing_dict: Dict[str, Any]) -> Optional[List[float]]:
         return None
 
     bhk = listing_dict.get("bhk")
-    area_sqft = listing_dict.get("area_sqft")
+    area_sqft = listing_dict.get("area_sqft") or listing_dict.get("sqft") or listing_dict.get("builtup_area")
     price = listing_dict.get("price")
 
-    if bhk is None or area_sqft is None or price is None or float(area_sqft) <= 0:
+    if price is None:
         return None
 
-    bhk_val = float(bhk)
-    area_val = float(area_sqft)
-    price_val = float(price)
-    price_per_sqft = price_val / area_val
+    try:
+        price_val = float(price)
+        if price_val <= 0:
+            return None
+    except (ValueError, TypeError):
+        return None
+
+    try:
+        bhk_val = float(bhk) if bhk is not None else 2.0
+    except (ValueError, TypeError):
+        bhk_val = 2.0
+
+    try:
+        area_val = float(area_sqft) if area_sqft is not None else 0.0
+    except (ValueError, TypeError):
+        area_val = 0.0
+
+    if area_val <= 0:
+        area_val = max(500.0, bhk_val * 550.0)
+
+    price_per_sqft = price_val / area_val if area_val > 0 else 0.0
 
     furnishing = str(listing_dict.get("furnishing", "")).lower()
     if "unfurnished" in furnishing:
@@ -54,6 +71,7 @@ def prepare_features(listing_dict: Dict[str, Any]) -> Optional[List[float]]:
     amenities_count = float(len(amenities) if isinstance(amenities, list) else 0)
 
     loc_name = str(listing_dict.get("locality", "")).lower().strip()
-    locality_code = LOCALITY_ENCODING.get(loc_name, 0.0)
+    locality_code = LOCALITY_ENCODING.get(loc_name, 3.0)
 
     return [bhk_val, area_val, price_val, price_per_sqft, furnishing_encoded, amenities_count, locality_code]
+

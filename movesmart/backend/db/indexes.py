@@ -76,8 +76,48 @@ def ensure_indexes():
     # 13. property_documents collection (Phase 10 — Owner document store)
     db["property_documents"].create_index([("owner_id", ASCENDING), ("property_id", ASCENDING)])
 
-    # Update visits index to include owner_id for Phase 10 owner-scoped queries
-    db["visits"].create_index([("owner_id", ASCENDING), ("status", ASCENDING)])
+    # 14. clients collection (Phase 11 — Broker CRM clients)
+    db["clients"].create_index([("broker_id", ASCENDING), ("status", ASCENDING)])
+    db["clients"].create_index([("broker_id", ASCENDING), ("favorite", ASCENDING)])
+
+    # 16. company_employees collection (Phase 12 — Company HR Enterprise)
+    db["company_employees"].create_index([("company_id", ASCENDING), ("relocation_status", ASCENDING)])
+    db["company_employees"].create_index([("company_id", ASCENDING), ("department", ASCENDING)])
+
+    # 17. broker_assignments collection (Phase 12 — Company HR Broker Assignments)
+    db["broker_assignments"].create_index([("company_id", ASCENDING), ("status", ASCENDING)])
+    db["broker_assignments"].create_index([("employee_id", ASCENDING)])
+
+    # 18. company_approvals collection (Phase 12 — Company HR Approvals Workflow)
+    db["company_approvals"].create_index([("company_id", ASCENDING), ("status", ASCENDING)])
+    db["company_approvals"].create_index([("employee_id", ASCENDING)])
+
+    # 20. notifications collection (Phase 13 — Universal Notification Center)
+    db["notifications"].create_index([("recipient_id", ASCENDING), ("is_read", ASCENDING)])
+    db["notifications"].create_index([("created_at", DESCENDING)])
+
+    # 21. calendar_events collection (Phase 13 — Universal Calendar & Scheduling)
+    db["calendar_events"].create_index([("user_id", ASCENDING), ("start_time", ASCENDING)])
+
+    # 22. activity_logs collection (Phase 13 — Activity Timeline & Audit Logs)
+    db["activity_logs"].create_index([("user_id", ASCENDING), ("timestamp", DESCENDING)])
+    db["activity_logs"].create_index([("timestamp", DESCENDING)])
+
+    # 23. documents collection (Phase 13 — Universal Document Center)
+    db["documents"].create_index([("user_id", ASCENDING), ("doc_type", ASCENDING)])
+
+    # 24. audit_logs collection (Phase 14 — Super Admin Platform Audit Logs)
+    db["audit_logs"].create_index([("actor_id", ASCENDING), ("timestamp", DESCENDING)])
+    db["audit_logs"].create_index([("action", ASCENDING)])
+
+    # 25. cms_content collection (Phase 14 — Super Admin CMS Manager)
+    db["cms_content"].create_index([("slug", ASCENDING)], unique=True)
+
+    # 26. user_feedback collection (Phase 14 — Feedback Center)
+    db["user_feedback"].create_index([("status", ASCENDING), ("created_at", DESCENDING)])
+
+    # 27. platform_settings collection (Phase 14 — Platform Settings)
+    db["platform_settings"].create_index([("setting_key", ASCENDING)], unique=True)
 
     print("All MongoDB production indexes created successfully.")
 
