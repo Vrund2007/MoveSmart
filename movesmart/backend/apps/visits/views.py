@@ -14,7 +14,11 @@ class VisitsView(APIView):
     permission_classes = [IsFindAccommodation]
 
     def get(self, request):
-        visits = visits_repo.get_seeker_visits(request.user.id)
+        listing_id = request.query_params.get('listing_id')
+        if listing_id:
+            visits = visits_repo.get_seeker_visits_for_listing(request.user.id, listing_id)
+        else:
+            visits = visits_repo.get_seeker_visits(request.user.id)
         return api_response(data=visits, message="Visits retrieved successfully.")
 
     def post(self, request):
@@ -50,9 +54,12 @@ class VisitDetailView(APIView):
         status_val = serializer.validated_data['status']
         notes = serializer.validated_data.get('notes')
 
-        success = visits_repo.update_visit_status(visit_id, request.user.id, status_val, notes)
-        if not success:
-            return api_response(message="Visit not found or failed to update.", status_code=status.HTTP_400_BAD_REQUEST)
+        try:
+            success = visits_repo.update_visit_status(visit_id, request.user.id, status_val, notes)
+            if not success:
+                return api_response(message="Visit not found or failed to update.", status_code=status.HTTP_400_BAD_REQUEST)
+        except ValueError as val_err:
+            return api_response(message=str(val_err), status_code=status.HTTP_400_BAD_REQUEST)
 
         updated = visits_repo.get_visit_by_id(visit_id, request.user.id)
         return api_response(data=updated, message=f"Visit status updated to {status_val}.")

@@ -26,7 +26,9 @@ export default function RentPredictionCard({ prediction, dealType = 'rent' }) {
     <Card className="bg-gradient-to-br from-teal-50 to-white border-2 border-teal-200 p-5 shadow-sm space-y-3">
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-2">
-          <span className="text-xl">📊</span>
+          <span className="px-2 py-0.5 rounded-md bg-teal-600 text-white text-[10px] font-black uppercase tracking-wider">
+            AI Valuation
+          </span>
           <div>
             <h4 className="font-bold text-sm text-text-primary">
               {isBuy ? 'AI Fair Sale Price Valuation' : 'XGBoost Fair Rent Estimate'}

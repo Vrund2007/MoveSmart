@@ -123,16 +123,16 @@ export default function VerifiedListings() {
       </div>
 
       {/* Sideways Sliding Track */}
-      <div className="w-full overflow-hidden">
+      <div className="w-full overflow-x-auto md:overflow-hidden pb-4 md:pb-0">
         <div
           ref={trackRef}
-          className="flex items-center gap-8 pl-4 pr-16"
-          style={{ width: `${SAMPLE_LISTINGS.length * 400}px`, willChange: 'transform' }}
+          className="flex items-center gap-4 sm:gap-8 px-4 sm:px-6 md:px-16"
+          style={{ willChange: 'transform' }}
         >
           {SAMPLE_LISTINGS.map((item, idx) => (
             <div
               key={item.id}
-              className="interactive-hover group w-[360px] md:w-[420px] flex-shrink-0 bg-white/95 backdrop-blur-md rounded-3xl overflow-hidden border border-white shadow-lg hover:shadow-2xl transition-all duration-300 flex flex-col justify-between"
+              className="interactive-hover group w-[85vw] max-w-[360px] md:w-[420px] flex-shrink-0 bg-white/95 backdrop-blur-md rounded-3xl overflow-hidden border border-white shadow-lg hover:shadow-2xl transition-all duration-300 flex flex-col justify-between"
             >
               {/* Image Container */}
               <div className="relative h-56 w-full overflow-hidden bg-gray-200">

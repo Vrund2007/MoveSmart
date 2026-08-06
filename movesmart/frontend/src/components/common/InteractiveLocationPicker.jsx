@@ -52,6 +52,7 @@ export default function InteractiveLocationPicker({
   showSaveButton = true,
   saveButtonLabel = "💾 Save Office Location"
 }) {
+  const containerRef = useRef(null);
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const markerInstanceRef = useRef(null);
@@ -63,6 +64,20 @@ export default function InteractiveLocationPicker({
   const [isSearching, setIsSearching] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
 
+  // Close suggestions dropdown when clicking or touching outside the component, or pressing Escape key
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (containerRef.current && !containerRef.current.contains(event.target)) {
+        setShowDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, []);
 
   // Sync addressText state when value prop updates from parent (e.g. on profile load or tab switch)
   useEffect(() => {
@@ -269,7 +284,7 @@ export default function InteractiveLocationPicker({
   };
 
   return (
-    <div className="space-y-2 font-sans text-xs">
+    <div ref={containerRef} className="space-y-2 font-sans text-xs relative">
       <div className="flex justify-between items-center">
         <label className="font-bold text-text-primary block">{label}</label>
         <button
@@ -289,6 +304,9 @@ export default function InteractiveLocationPicker({
             value={addressText}
             onChange={handleInputChange}
             onFocus={() => suggestions.length > 0 && setShowDropdown(true)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') setShowDropdown(false);
+            }}
             placeholder="Search office, company, building name or street in Ahmedabad (e.g. TCS, Adani, GIFT City)..."
             className="w-full bg-white border border-border rounded-lg p-2.5 pl-8 text-xs text-text-primary outline-none focus:border-primary shadow-sm"
             autoComplete="off"

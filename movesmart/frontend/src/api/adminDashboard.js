@@ -1,8 +1,4 @@
 import api from '../lib/api';
-
-/**
- * Super Admin Dashboard API Helpers
- */
 export const getAdminDashboard = async () => {
   const response = await api.get('/admin/dashboard');
   return response.data;

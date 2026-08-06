@@ -51,7 +51,7 @@ const Navbar = () => {
               <Link to="/login" className="text-sm font-medium hover:text-primary transition-colors">
                 Login
               </Link>
-              <Link to="/signup">
+              <Link to="/login">
                 <Button variant="primary" size="sm">
                   Get Started
                 </Button>

@@ -14,7 +14,6 @@ import Dashboard from './pages/Dashboard';
 import ListingDetail from './pages/ListingDetail';
 import SavedListings from './pages/SavedListings';
 import OwnerDashboard from './pages/OwnerDashboard';
-import BrokerDashboard from './pages/BrokerDashboard';
 import CompanyDashboard from './pages/CompanyDashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminReviewQueue from './pages/AdminReviewQueue';
@@ -24,7 +23,6 @@ import LoadingSpinner from './components/common/LoadingSpinner';
 import Notifications from './pages/Notifications';
 import Messages from './pages/Messages';
 import Calendar from './pages/Calendar';
-import Documents from './pages/Documents';
 import Search from './pages/Search';
 import Reports from './pages/Reports';
 import Activity from './pages/Activity';
@@ -35,10 +33,9 @@ export function getRoleDashboard(role) {
   switch (role) {
     case 'find_accommodation': return '/dashboard';
     case 'property_owner':     return '/owner';
-    case 'broker':             return '/broker';
     case 'company_hr':         return '/company';
-    case 'admin':              return '/admin/dashboard';
-    default:                   return '/choose-your-journey';
+    case 'admin':              return '/admin';
+    default:                   return '/dashboard';
   }
 }
 
@@ -121,7 +118,7 @@ function App() {
             <Route
               path="/listings/:id"
               element={
-                <ProtectedRoute allowedRoles={['find_accommodation', 'admin']}>
+                <ProtectedRoute allowedRoles={['find_accommodation', 'admin', 'property_owner', 'company_hr']}>
                   <ListingDetail />
                 </ProtectedRoute>
               }
@@ -145,14 +142,10 @@ function App() {
               }
             />
 
-            {/* Broker Routes */}
+            {/* Broker Route Redirect */}
             <Route
               path="/broker"
-              element={
-                <ProtectedRoute allowedRoles={['broker']}>
-                  <BrokerDashboard />
-                </ProtectedRoute>
-              }
+              element={<Navigate to="/dashboard" replace />}
             />
 
             {/* Company / HR Routes */}
@@ -195,7 +188,6 @@ function App() {
             <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
             <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
             <Route path="/calendar" element={<ProtectedRoute><Calendar /></ProtectedRoute>} />
-            <Route path="/documents" element={<ProtectedRoute><Documents /></ProtectedRoute>} />
             <Route path="/search" element={<ProtectedRoute><Search /></ProtectedRoute>} />
             <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
             <Route path="/activity" element={<ProtectedRoute><Activity /></ProtectedRoute>} />

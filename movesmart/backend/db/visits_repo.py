@@ -66,6 +66,24 @@ def get_seeker_visits(seeker_id: str) -> List[Dict[str, Any]]:
     return visits
 
 
+def get_seeker_visits_for_listing(seeker_id: str, listing_id: str) -> List[Dict[str, Any]]:
+    """Fetch property visit requests for a seeker for a specific listing."""
+    db = get_db()
+    try:
+        s_oid = ObjectId(seeker_id)
+    except Exception:
+        return []
+
+    cursor = db["visits"].find({"seeker_id": s_oid, "listing_id": str(listing_id)}).sort("created_at", -1)
+    visits = [_serialize(doc) for doc in cursor]
+
+    listing = listings_repo.get_listing_by_id(listing_id, include_non_approved=True)
+    for v in visits:
+        v["listing"] = listing
+
+    return visits
+
+
 def get_visit_by_id(visit_id: str, seeker_id: str) -> Optional[Dict[str, Any]]:
     """Fetch a single visit request by ID for a seeker."""
     db = get_db()
@@ -86,13 +104,20 @@ def get_visit_by_id(visit_id: str, seeker_id: str) -> Optional[Dict[str, Any]]:
 
 
 def update_visit_status(visit_id: str, seeker_id: str, status_value: str, notes: str = None) -> bool:
-    """Update visit status (e.g. cancelled, rescheduled)."""
+    """Update visit status (e.g. cancelled, rescheduled). Completed visits cannot be altered."""
     db = get_db()
     try:
         v_oid = ObjectId(visit_id)
         s_oid = ObjectId(seeker_id)
     except Exception:
         return False
+
+    existing = db["visits"].find_one({"_id": v_oid, "seeker_id": s_oid})
+    if not existing:
+        return False
+
+    if existing.get("status") == "completed":
+        raise ValueError("Completed property visits cannot be cancelled or altered.")
 
     update_fields = {
         "status": status_value,
@@ -160,6 +185,13 @@ def owner_update_visit_status(visit_id: str, owner_id: str, status_value: str, n
         o_oid = ObjectId(owner_id)
     except Exception:
         return False
+
+    existing = db["visits"].find_one({"_id": v_oid, "owner_id": o_oid})
+    if not existing:
+        return False
+
+    if existing.get("status") == "completed":
+        raise ValueError("Completed property visits cannot be cancelled or altered.")
 
     update_fields = {
         "status": status_value,

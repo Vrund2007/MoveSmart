@@ -40,7 +40,6 @@ INSTALLED_APPS = [
     'apps.listings',
     'apps.admin_review',
     'apps.enquiries',
-    'apps.broker',
     'apps.company',
     'apps.recommendations',
     'apps.commute',
@@ -48,9 +47,6 @@ INSTALLED_APPS = [
     'apps.assistant',
     'apps.visits',
     'apps.messages',
-    'apps.payments',
-    'apps.reviews',
-    'apps.documents',
 ]
 
 # ─── Middleware ────────────────────────────────────────────────────────────────
@@ -123,7 +119,22 @@ GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '')
 GEOAPIFY_API_KEY = os.environ.get('GEOAPIFY_API_KEY', '435363f7628a447084da302c1cb4d029')
 MAPS_API_KEY = GEOAPIFY_API_KEY
 
+# ─── Cloudinary Credentials ───────────────────────────────────────────────────
+CLOUDINARY_CLOUD_NAME = os.environ.get('CLOUDINARY_CLOUD_NAME', 'dol7leoig')
+CLOUDINARY_API_KEY = os.environ.get('CLOUDINARY_API_KEY', '848921638563788')
+CLOUDINARY_API_SECRET = os.environ.get('CLOUDINARY_API_SECRET', 'C27rnSu5AOZaif3_sl-DA4e5cZI')
 
+# ─── Razorpay Credentials ─────────────────────────────────────────────────────
+RAZORPAY_KEY_ID = os.environ.get('RAZORPAY_KEY_ID', 'rzp_test_TLywXESF3GfgEJ')
+RAZORPAY_KEY_SECRET = os.environ.get('RAZORPAY_KEY_SECRET', 'Z416RuavJ486cEYHNVjkqJUi')
+
+# ─── Media Storage ─────────────────────────────────────────────────────────────
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
+# ─── Groq API Configuration ──────────────────────────────────────────────────
+GROQ_API_KEY = os.environ.get('GROQ_API_KEY', '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')
 
 # ─── Default auto field ───────────────────────────────────────────────────────
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+

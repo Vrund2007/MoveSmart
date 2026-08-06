@@ -29,7 +29,8 @@ class RegisterView(APIView):
         try:
             user_doc, tokens = services.register_user(
                 email=data['email'],
-                password=data['password']
+                password=data['password'],
+                name=data.get('name', '')
             )
         except services.DuplicateEmailError as exc:
             return api_response(
@@ -196,3 +197,173 @@ class ProfileView(APIView):
             data={'user': updated_user},
             message="Role profile updated successfully."
         )
+
+
+import hmac
+import hashlib
+import time
+import razorpay
+from django.conf import settings
+
+class RazorpayCreateOrderView(APIView):
+    """POST /api/auth/razorpay/create-order — Create Razorpay order (₹30) for unlocking premium seeker features."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        feature = request.data.get('feature')
+        if feature not in ['recommendations', 'commute']:
+            return api_response(message="Invalid feature specified.", status_code=status.HTTP_400_BAD_REQUEST)
+
+        key_id = getattr(settings, 'RAZORPAY_KEY_ID', 'rzp_test_TLywXESF3GfgEJ')
+        key_secret = getattr(settings, 'RAZORPAY_KEY_SECRET', 'Z416RuavJ486cEYHNVjkqJUi')
+
+        try:
+            client = razorpay.Client(auth=(key_id, key_secret))
+            user_short = str(request.user.id)[-8:]
+            order_data = {
+                'amount': 3000,  # ₹30 in paise
+                'currency': 'INR',
+                'receipt': f"rcpt_{user_short}_{int(time.time())}",
+                'notes': {
+                    'user_id': str(request.user.id),
+                    'feature': feature
+                }
+            }
+            order = client.order.create(data=order_data)
+            return api_response(
+                data={
+                    'order_id': order['id'],
+                    'amount': order['amount'],
+                    'currency': order['currency'],
+                    'key_id': key_id,
+                    'feature': feature
+                },
+                message="Razorpay order created."
+            )
+        except Exception as exc:
+            return api_response(message=f"Razorpay order creation failed: {str(exc)}", status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class RazorpayVerifyPaymentView(APIView):
+    """POST /api/auth/razorpay/verify-payment — Verify HMAC signature and unlock feature in user document."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        order_id = request.data.get('razorpay_order_id')
+        payment_id = request.data.get('razorpay_payment_id')
+        signature = request.data.get('razorpay_signature')
+        feature = request.data.get('feature')
+
+        if not all([order_id, payment_id, signature, feature]):
+            return api_response(message="Missing required Razorpay payment parameters.", status_code=status.HTTP_400_BAD_REQUEST)
+
+        if feature not in ['recommendations', 'commute']:
+            return api_response(message="Invalid feature specified.", status_code=status.HTTP_400_BAD_REQUEST)
+
+        key_secret = getattr(settings, 'RAZORPAY_KEY_SECRET', 'Z416RuavJ486cEYHNVjkqJUi')
+
+        msg = f"{order_id}|{payment_id}".encode('utf-8')
+        generated_sig = hmac.new(key_secret.encode('utf-8'), msg, hashlib.sha256).hexdigest()
+
+        if generated_sig != signature:
+            return api_response(message="Razorpay signature verification failed.", status_code=status.HTTP_400_BAD_REQUEST)
+
+        from db.users_repo import unlock_feature
+        updated_user = unlock_feature(str(request.user.id), feature)
+
+        return api_response(
+            data={
+                'user': updated_user,
+                'unlocked_features': updated_user.get('unlocked_features', []),
+                'unlocked_feature': feature
+            },
+            message=f"Payment verified successfully! Feature '{feature}' unlocked."
+        )
+
+
+class GoogleAuthView(APIView):
+    """POST /api/auth/google — Google OAuth authentication & registration."""
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        email = request.data.get('email')
+        if not email:
+            return api_response(message="Email address is required for Google login.", status_code=status.HTTP_400_BAD_REQUEST)
+
+        name = request.data.get('name', '')
+        picture = request.data.get('picture', '')
+        google_id = request.data.get('google_id', '')
+        role = request.data.get('role', 'seeker')
+
+        user_doc, tokens = services.google_auth_user(
+            email=email,
+            name=name,
+            picture=picture,
+            google_id=google_id,
+            role=role
+        )
+
+        return api_response(
+            data={'user': user_doc, **tokens},
+            message="Google authentication successful."
+        )
+
+
+class ChangePasswordView(APIView):
+    """POST /api/auth/change-password — change user password after verifying current password."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        old_password = request.data.get('old_password')
+        new_password = request.data.get('new_password')
+
+        if not old_password or not new_password:
+            return api_response(
+                message="Both old_password and new_password are required.",
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            services.change_password(
+                user_id=str(request.user.id),
+                old_password=old_password,
+                new_password=new_password
+            )
+            return api_response(
+                message="Password updated successfully.",
+                status_code=status.HTTP_200_OK
+            )
+        except (services.InvalidCredentialsError, services.AccountServiceError) as exc:
+            return api_response(
+                message=str(exc),
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+
+
+class DeleteAccountView(APIView):
+    """POST /api/auth/delete-account — verify password and permanently delete user account."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        password = request.data.get('password')
+        if not password:
+            return api_response(
+                message="Password confirmation is required to delete account.",
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            services.delete_account(
+                user_id=str(request.user.id),
+                password=password
+            )
+            return api_response(
+                message="Account deleted successfully.",
+                status_code=status.HTTP_200_OK
+            )
+        except (services.InvalidCredentialsError, services.AccountServiceError) as exc:
+            return api_response(
+                message=str(exc),
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+

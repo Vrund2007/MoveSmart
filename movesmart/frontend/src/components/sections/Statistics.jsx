@@ -14,17 +14,17 @@ const prefersReducedMotion =
 
 const STATS = [
   {
-    id: 'cities',
-    value: 12,
+    id: 'areas',
+    value: 15,
     suffix: '+',
-    label: 'Major Cities Covered',
-    detail: 'Expanding across tier-1 relocation hubs',
+    label: 'Ahmedabad Areas Covered',
+    detail: 'Top prime localities across Ahmedabad',
   },
   {
     id: 'homes',
-    value: 15000,
+    value: 2000,
     suffix: '+',
-    label: 'Verified Homes Audited',
+    label: 'Verified Property Listings',
     detail: '100% inspected with ML risk scores',
   },
   {
@@ -36,12 +36,12 @@ const STATS = [
     detail: 'Zero scam reports or hidden fee disputes',
   },
   {
-    id: 'rating',
-    value: 4.9,
-    suffix: ' / 5',
+    id: 'satisfaction',
+    value: 99.2,
+    suffix: '%',
     decimals: 1,
-    label: 'Customer Satisfaction',
-    detail: 'Across 4,200+ verified tenant reviews',
+    label: 'User Satisfaction',
+    detail: 'Across verified relocations & smart property matches',
   },
 ];
 
@@ -91,7 +91,7 @@ export default function Statistics() {
       className="py-20 px-6 md:px-16 bg-[#EEEEEE]/90 border-t border-b border-black/5"
     >
       <div className="max-w-7xl mx-auto">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
           {STATS.map((stat, i) => (
             <div
               key={stat.id}

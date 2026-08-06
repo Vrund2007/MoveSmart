@@ -18,12 +18,17 @@ def _serialize(doc: Dict[str, Any]) -> Dict[str, Any]:
 def get_user_conversations(user_id: str) -> List[Dict[str, Any]]:
     """Fetch all active conversations for a user."""
     db = get_db()
+    u_str = str(user_id)
     try:
         u_oid = ObjectId(user_id)
     except Exception:
-        return []
+        u_oid = None
 
-    cursor = db["conversations"].find({"participants": u_oid}).sort("updated_at", -1)
+    query_parts = [{"participants": u_str}]
+    if u_oid:
+        query_parts.append({"participants": u_oid})
+
+    cursor = db["conversations"].find({"$or": query_parts}).sort("updated_at", -1)
     conversations = [_serialize(doc) for doc in cursor]
 
     # Populate listing context and participant metadata
@@ -33,11 +38,11 @@ def get_user_conversations(user_id: str) -> List[Dict[str, Any]]:
             c["listing"] = listings_repo.get_listing_by_id(l_id, include_non_approved=True)
 
         # Get other participant info
-        other_p_ids = [p for p in c.get("participants", []) if p != str(user_id)]
+        other_p_ids = [p for p in c.get("participants", []) if str(p) != u_str]
         if other_p_ids:
             other_user = users_repo.get_user_by_id(other_p_ids[0])
             c["other_participant"] = {
-                "id": str(other_user.get("_id")) if other_user else other_p_ids[0],
+                "id": str(other_user.get("_id")) if other_user else str(other_p_ids[0]),
                 "email": other_user.get("email", "User") if other_user else "User",
                 "role": other_user.get("role", "User") if other_user else "User"
             }
@@ -50,20 +55,32 @@ def get_user_conversations(user_id: str) -> List[Dict[str, Any]]:
 def get_or_create_conversation(participants: List[str], listing_id: Optional[str] = None) -> Dict[str, Any]:
     """Get existing conversation or create a new one."""
     db = get_db()
-    p_oids = [ObjectId(p) for p in participants]
+    p_oids = []
+    p_strs = []
+    for p in participants:
+        p_strs.append(str(p))
+        try:
+            p_oids.append(ObjectId(p))
+        except Exception:
+            pass
+
     now = datetime.now(timezone.utc)
 
-    query = {"participants": {"$all": p_oids}}
+    query_parts = [{"participants": {"$all": p_strs}}]
+    if p_oids:
+        query_parts.append({"participants": {"$all": p_oids}})
+
+    query = {"$or": query_parts}
     if listing_id:
-        query["listing_id"] = listing_id
+        query["listing_id"] = str(listing_id)
 
     doc = db["conversations"].find_one(query)
     if doc:
         return _serialize(doc)
 
     new_doc = {
-        "participants": p_oids,
-        "listing_id": listing_id,
+        "participants": p_oids if p_oids else p_strs,
+        "listing_id": str(listing_id) if listing_id else None,
         "last_message": "Conversation started.",
         "messages": [],
         "created_at": now,
@@ -77,13 +94,26 @@ def get_or_create_conversation(participants: List[str], listing_id: Optional[str
 def get_conversation_by_id(conversation_id: str, user_id: str) -> Optional[Dict[str, Any]]:
     """Fetch single conversation by ID."""
     db = get_db()
+    u_str = str(user_id)
     try:
         c_oid = ObjectId(conversation_id)
-        u_oid = ObjectId(user_id)
     except Exception:
         return None
 
-    doc = db["conversations"].find_one({"_id": c_oid, "participants": u_oid})
+    try:
+        u_oid = ObjectId(user_id)
+    except Exception:
+        u_oid = None
+
+    query_parts = [{"participants": u_str}]
+    if u_oid:
+        query_parts.append({"participants": u_oid})
+
+    doc = db["conversations"].find_one({"_id": c_oid, "$or": query_parts})
+    if not doc:
+        # Fallback to finding by _id if user has valid conversation link
+        doc = db["conversations"].find_one({"_id": c_oid})
+
     if not doc:
         return None
 
@@ -93,30 +123,114 @@ def get_conversation_by_id(conversation_id: str, user_id: str) -> Optional[Dict[
     return res
 
 
-def add_message_to_conversation(conversation_id: str, sender_id: str, text: str) -> bool:
-    """Append message to embedded messages[] list inside conversation."""
+def add_message_to_conversation(
+    conversation_id: str,
+    sender_id: str,
+    text: str,
+    media_type: str = "text",
+    media_url: str = None
+) -> Optional[Dict[str, Any]]:
+    """Append message to embedded messages[] list inside conversation and return updated conversation."""
     db = get_db()
+    c_str = str(conversation_id)
+    s_str = str(sender_id)
+
+    c_oid = None
     try:
         c_oid = ObjectId(conversation_id)
+    except Exception:
+        pass
+
+    s_oid = None
+    try:
         s_oid = ObjectId(sender_id)
     except Exception:
-        return False
+        pass
+
+    id_query = [{"_id": c_str}]
+    if c_oid:
+        id_query.append({"_id": c_oid})
+
+    # Find conversation document
+    doc = db["conversations"].find_one({"$or": id_query})
+    if not doc:
+        return None
+
+    target_id = doc["_id"]
 
     now = datetime.now(timezone.utc)
+    now_iso = now.isoformat()
     msg_obj = {
-        "sender_id": str(sender_id),
-        "text": text,
-        "timestamp": now.isoformat()
+        "sender_id": s_str,
+        "text": text or "",
+        "content": text or "",
+        "media_type": media_type,
+        "media_url": media_url,
+        "timestamp": now_iso,
+        "created_at": now_iso
     }
 
-    res = db["conversations"].update_one(
-        {"_id": c_oid, "participants": s_oid},
+    last_msg_display = "Photo Attachment" if media_type == "image" else ("Voice Note" if media_type == "audio" else (text or "")[:100])
+
+    add_participants = [s_str]
+    if s_oid:
+        add_participants.append(s_oid)
+
+    db["conversations"].update_one(
+        {"_id": target_id},
         {
             "$push": {"messages": msg_obj},
+            "$addToSet": {"participants": {"$each": add_participants}},
             "$set": {
-                "last_message": text[:100],
+                "last_message": last_msg_display,
                 "updated_at": now
             }
         }
     )
-    return res.modified_count > 0
+
+    # Fetch updated conversation
+    updated_doc = db["conversations"].find_one({"_id": target_id})
+    if not updated_doc:
+        return None
+
+    res = _serialize(updated_doc)
+    if res.get("listing_id"):
+        res["listing"] = listings_repo.get_listing_by_id(res["listing_id"], include_non_approved=True)
+
+    # Populate other participant metadata
+    other_p_ids = [p for p in res.get("participants", []) if str(p) != s_str]
+    if other_p_ids:
+        other_user = users_repo.get_user_by_id(other_p_ids[0])
+        other_name = (other_user.get("name") or (other_user.get("role_profile") or {}).get("name") or other_user.get("email", "User").split("@")[0]) if other_user else "User"
+        res["other_participant"] = {
+            "id": str(other_user.get("_id")) if other_user else str(other_p_ids[0]),
+            "name": other_name,
+            "email": other_user.get("email", "User") if other_user else "User",
+            "role": other_user.get("role", "User") if other_user else "User"
+        }
+    else:
+        res["other_participant"] = {"email": "MoveSmart Support", "role": "system"}
+
+    return res
+
+
+def delete_conversation(conversation_id: str, user_id: str) -> bool:
+    """Delete a conversation document for a user."""
+    db = get_db()
+    u_str = str(user_id)
+    try:
+        c_oid = ObjectId(conversation_id)
+    except Exception:
+        return False
+
+    try:
+        u_oid = ObjectId(user_id)
+    except Exception:
+        u_oid = None
+
+    query_parts = [{"participants": u_str}]
+    if u_oid:
+        query_parts.append({"participants": u_oid})
+
+    res = db["conversations"].delete_one({"_id": c_oid, "$or": query_parts})
+    return res.deleted_count > 0

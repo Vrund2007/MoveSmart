@@ -11,15 +11,18 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
-def create_user(email: str, password_hash: str) -> dict:
+def create_user(email: str, password_hash: str, name: str = "") -> dict:
     """Insert a new user document. Role is unset at creation — set via PATCH /api/auth/role.
     Returns the created user dict WITHOUT password_hash (Rules.md §3).
     Raises pymongo.errors.DuplicateKeyError if email already exists.
     """
     db = get_db()
     now = _now()
+    clean_email = email.lower().strip()
+    user_name = name.strip() if name and name.strip() else clean_email.split('@')[0].capitalize()
     doc = {
-        'email': email.lower().strip(),
+        'email': clean_email,
+        'name': user_name,
         'password_hash': password_hash,
         'role': None,          # set by PATCH /api/auth/role (FR-1)
         'role_profile': {},
@@ -29,6 +32,25 @@ def create_user(email: str, password_hash: str) -> dict:
     result = db['users'].insert_one(doc)
     doc['_id'] = result.inserted_id
     # never return password_hash (Rules.md §3)
+    return _serialize_user(doc)
+
+
+def create_admin_user(email: str, password_hash: str, name: str = "Admin") -> dict:
+    """Insert a new admin user document into MongoDB."""
+    db = get_db()
+    now = _now()
+    doc = {
+        'email': email.lower().strip(),
+        'name': name.strip(),
+        'password_hash': password_hash,
+        'role': 'admin',
+        'role_profile': {'admin_level': 'superadmin'},
+        'account_status': 'active',
+        'created_at': now,
+        'updated_at': now,
+    }
+    result = db['users'].insert_one(doc)
+    doc['_id'] = result.inserted_id
     return _serialize_user(doc)
 
 
@@ -89,6 +111,39 @@ def update_role_profile(user_id: str, profile_data: dict) -> dict:
     return get_user_by_id(user_id)
 
 
+def unlock_feature(user_id: str, feature: str) -> dict:
+    """Add feature ('recommendations' or 'commute') to user's unlocked_features set."""
+    db = get_db()
+    db['users'].update_one(
+        {'_id': ObjectId(user_id)},
+        {
+            '$addToSet': {'unlocked_features': feature},
+            '$set': {'updated_at': _now()}
+        }
+    )
+    return get_user_by_id(user_id)
+
+
+def update_password(user_id: str, new_password_hash: str) -> bool:
+    """Update password_hash for a user ID in MongoDB."""
+    db = get_db()
+    res = db['users'].update_one(
+        {'_id': ObjectId(user_id)},
+        {'$set': {'password_hash': new_password_hash, 'updated_at': _now()}}
+    )
+    return res.modified_count > 0
+
+
+def delete_user_by_id(user_id: str) -> bool:
+    """Permanently delete user document and related bookmarks/data from MongoDB."""
+    db = get_db()
+    obj_id = ObjectId(user_id)
+    # Remove user's saved listings and notifications if any
+    db['saved_listings'].delete_many({'user_id': user_id})
+    db['notifications'].delete_many({'user_id': user_id})
+    res = db['users'].delete_one({'_id': obj_id})
+    return res.deleted_count > 0
+
 
 def _serialize_user(doc: dict) -> dict:
     """Convert ObjectId → str and strip password_hash for safe serialization."""
@@ -96,4 +151,5 @@ def _serialize_user(doc: dict) -> dict:
     doc.pop('password_hash', None)
     if '_id' in doc:
         doc['_id'] = str(doc['_id'])
+    doc.setdefault('unlocked_features', [])
     return doc

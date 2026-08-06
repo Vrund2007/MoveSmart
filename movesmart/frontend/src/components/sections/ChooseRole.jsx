@@ -21,7 +21,7 @@ const ROLES = [
     description:
       'Discover AI-ranked localities and verified homes matched perfectly to your budget, office commute, and lifestyle.',
     icon: Home,
-    link: '/signup?role=renter',
+    link: '/login',
     accent: '#00ADB5',
   },
   {
@@ -31,18 +31,8 @@ const ROLES = [
     description:
       'List properties with automated AI rent valuations, instant verification badges, and direct pre-screened tenant leads.',
     icon: Building,
-    link: '/signup?role=owner',
+    link: '/login',
     accent: '#22C55E',
-  },
-  {
-    id: 'broker',
-    title: 'Certified Broker',
-    tagline: 'For Licensed Agents',
-    description:
-      'Access high-intent relocation leads, manage digital viewings, and close deals faster with transparent admin oversight.',
-    icon: Briefcase,
-    link: '/signup?role=broker',
-    accent: '#00ADB5',
   },
   {
     id: 'company',
@@ -51,7 +41,7 @@ const ROLES = [
     description:
       'Manage corporate employee batch transfers, track housing budgets, and provide seamless move-in support.',
     icon: Users,
-    link: '/signup?role=company',
+    link: '/login',
     accent: '#00ADB5',
   },
 ];
@@ -125,12 +115,12 @@ export default function ChooseRole() {
             Choose Your Journey
           </h2>
           <p className="text-[#393E46] text-base md:text-lg font-medium leading-relaxed">
-            MoveSmart brings renters, homeowners, brokers, and enterprise HR together under one data-driven ecosystem.
+            MoveSmart brings renters, homeowners, and enterprise HR together under one data-driven ecosystem.
           </p>
         </div>
 
-        {/* 4 Cards Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* 3 Cards Centered Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto justify-center">
           {ROLES.map((role, i) => {
             const Icon = role.icon;
             return (
