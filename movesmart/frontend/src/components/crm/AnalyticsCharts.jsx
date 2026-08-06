@@ -12,7 +12,7 @@ export default function AnalyticsCharts({ analytics = {} }) {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Performance Score Gauge Card */}
         <Card className="p-6 bg-white border border-[#D9D9D9] flex flex-col justify-between items-center text-center space-y-4">
-          <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Overall Performance Rating</span>
+          <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Overall Performance Score</span>
 
           <div className="relative flex items-center justify-center w-32 h-32 rounded-full border-8 border-[#00ADB5]/20 bg-[#EEEEEE]/30">
             <span className="text-3xl font-black text-[#00ADB5]">{score}</span>

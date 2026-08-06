@@ -2,6 +2,7 @@
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
+# pyrefly: ignore [missing-import]
 from apps.common.responses import api_response
 from db import messages_repo
 from .serializers import ConversationCreateSerializer, MessageAddSerializer
@@ -37,7 +38,9 @@ class ConversationsView(APIView):
 
 
 class ConversationDetailView(APIView):
-    """GET /api/messages/conversations/:id — fetch single conversation with messages."""
+    """GET /api/messages/conversations/:id — fetch single conversation with messages.
+    DELETE /api/messages/conversations/:id — delete conversation.
+    """
     permission_classes = [IsAuthenticated]
 
     def get(self, request, conversation_id):
@@ -46,6 +49,13 @@ class ConversationDetailView(APIView):
             return api_response(message="Conversation not found.", status_code=status.HTTP_404_NOT_FOUND)
 
         return api_response(data=conv, message="Conversation details retrieved.")
+
+    def delete(self, request, conversation_id):
+        success = messages_repo.delete_conversation(conversation_id, request.user.id)
+        if not success:
+            return api_response(message="Conversation not found or failed to delete.", status_code=status.HTTP_404_NOT_FOUND)
+
+        return api_response(message="Conversation deleted successfully.")
 
 
 class ConversationMessagesView(APIView):
@@ -57,10 +67,17 @@ class ConversationMessagesView(APIView):
         if not serializer.is_valid():
             return api_response(errors=serializer.errors, message="Validation error", status_code=status.HTTP_400_BAD_REQUEST)
 
-        text = serializer.validated_data['text']
-        success = messages_repo.add_message_to_conversation(conversation_id, request.user.id, text)
-        if not success:
-            return api_response(message="Failed to send message.", status_code=status.HTTP_400_BAD_REQUEST)
+        text = (serializer.validated_data.get('text') or '').strip()
+        media_type = serializer.validated_data.get('media_type') or 'text'
+        media_url = serializer.validated_data.get('media_url')
 
-        updated = messages_repo.get_conversation_by_id(conversation_id, request.user.id)
-        return api_response(data=updated, message="Message sent successfully.")
+        if not text and not media_url:
+            return api_response(message="Message text or media attachment required.", status_code=status.HTTP_400_BAD_REQUEST)
+
+        updated_conv = messages_repo.add_message_to_conversation(
+            conversation_id, request.user.id, text, media_type=media_type, media_url=media_url
+        )
+        if not updated_conv:
+            return api_response(message="Conversation not found or failed to send message.", status_code=status.HTTP_400_BAD_REQUEST)
+
+        return api_response(data=updated_conv, message="Message sent successfully.")

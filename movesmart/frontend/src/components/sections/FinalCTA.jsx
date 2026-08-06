@@ -72,34 +72,38 @@ export default function FinalCTA() {
   return (
     <section
       ref={sectionRef}
-      className="bg-aurora-mesh/85 backdrop-blur-md text-white py-28 px-6 md:px-16 relative overflow-hidden flex flex-col items-center justify-center text-center border-t border-white/10"
+      className="relative bg-white/35 backdrop-blur-md py-28 px-6 md:px-16 overflow-hidden flex flex-col items-center justify-center text-center border-t border-[#00ADB5]/15 shadow-xs"
     >
+      {/* Soft Blurred Gradient Orbs (White to Brand Teal/Cyan Theme) */}
+      <div className="absolute -top-32 left-1/2 -translate-x-1/2 w-[650px] h-[450px] bg-gradient-to-tr from-[#00ADB5]/25 via-[#00D2DC]/20 to-transparent rounded-full blur-[110px] pointer-events-none" />
+      <div className="absolute -bottom-32 left-1/3 w-[500px] h-[380px] bg-gradient-to-br from-[#00ADB5]/20 via-[#393E46]/10 to-transparent rounded-full blur-[100px] pointer-events-none" />
+
       <div className="max-w-4xl mx-auto relative z-10">
-        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 mb-6 shadow-sm">
+        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/80 backdrop-blur-md border border-[#00ADB5]/30 mb-6 shadow-xs">
           <Sparkles size={15} className="text-[#00ADB5]" />
-          <span className="text-xs font-bold tracking-wider uppercase text-white font-['Plus_Jakarta_Sans']">
+          <span className="text-xs font-bold tracking-wider uppercase text-[#00ADB5] font-['Plus_Jakarta_Sans']">
             Your Next Chapter Begins Here
           </span>
         </div>
 
         <h2
           ref={headlineRef}
-          className="text-4xl md:text-6xl font-extrabold tracking-tight mb-6 font-['Plus_Jakarta_Sans'] text-white leading-tight"
+          className="text-4xl md:text-6xl font-extrabold tracking-tight mb-6 font-['Plus_Jakarta_Sans'] text-[#222831] leading-tight"
         >
-          Ready to Move with Certainty?
+          Ready to Move with <span className="bg-gradient-to-r from-[#222831] via-[#00ADB5] to-[#222831] bg-clip-text text-transparent">Certainty?</span>
         </h2>
 
-        <p className="text-[#EEEEEE]/90 text-lg md:text-xl font-medium max-w-2xl mx-auto mb-10 leading-relaxed">
+        <p className="text-[#393E46] text-lg md:text-xl font-medium max-w-2xl mx-auto mb-10 leading-relaxed">
           Join thousands of renters, property owners, certified brokers, and HR teams building the future of AI-powered city relocation.
         </p>
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
           <a
             ref={btnRef}
-            href="/signup"
+            href="/login"
             onMouseMove={handleMouseMove}
             onMouseLeave={handleMouseLeave}
-            className="interactive-hover magnetic-btn-glow inline-flex items-center gap-3 bg-[#00ADB5] text-white font-bold rounded-xl shadow-xl shadow-[#00ADB5]/30 hover:bg-[#00969d] px-9 py-4 text-lg transition-all duration-200 no-underline"
+            className="interactive-hover magnetic-btn-glow inline-flex items-center gap-3 bg-[#00ADB5] text-white font-bold rounded-xl shadow-xl shadow-[#00ADB5]/25 hover:bg-[#00969d] px-9 py-4 text-lg transition-all duration-200 no-underline"
           >
             <span>Start Free Trial</span>
             <ArrowRight size={20} />

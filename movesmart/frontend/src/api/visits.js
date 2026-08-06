@@ -10,8 +10,9 @@ export const scheduleVisit = async (visitData) => {
 
 export const createVisit = scheduleVisit;
 
-export const getVisits = async () => {
-  const response = await api.get('/visits');
+export const getVisits = async (listingId = null) => {
+  const url = listingId ? `/visits?listing_id=${listingId}` : '/visits';
+  const response = await api.get(url);
   return response.data;
 };
 

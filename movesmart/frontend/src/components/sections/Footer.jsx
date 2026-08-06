@@ -3,12 +3,27 @@
 import React from 'react';
 
 export default function Footer() {
+  const handleNavClick = (e, href) => {
+    if (href.startsWith('#')) {
+      e.preventDefault();
+      const targetEl = document.querySelector(href);
+      if (targetEl) {
+        const smoother = window.gsapSmoother;
+        if (smoother && typeof smoother.scrollTo === 'function') {
+          smoother.scrollTo(targetEl, true, 'top top');
+        } else {
+          targetEl.scrollIntoView({ behavior: 'smooth' });
+        }
+      }
+    }
+  };
+
   return (
     <footer className="bg-[#222831] text-white py-16 px-6 md:px-16 border-t border-white/10">
       <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-5 gap-10 mb-12">
         {/* Brand Info */}
         <div className="md:col-span-2 space-y-4">
-          <a href="/" className="flex items-center gap-3 no-underline">
+          <a href="/" onClick={(e) => { e.preventDefault(); window.gsapSmoother?.scrollTo(0, true) || window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="flex items-center gap-3 no-underline">
             <div className="w-9 h-9 rounded-full p-0.5 bg-gradient-to-tr from-[#00ADB5] to-[#222831]">
               <img
                 src="/smart-Building.png"
@@ -31,10 +46,10 @@ export default function Footer() {
             Marketplace
           </h4>
           <ul className="space-y-2.5 text-sm text-[#EEEEEE]/80 font-medium list-none p-0">
-            <li><a href="#how-it-works" className="hover:text-[#00ADB5] transition-colors no-underline">How It Works</a></li>
-            <li><a href="#choose-role" className="hover:text-[#00ADB5] transition-colors no-underline">Marketplace Roles</a></li>
-            <li><a href="#area-intelligence" className="hover:text-[#00ADB5] transition-colors no-underline">Area Intelligence</a></li>
-            <li><a href="#verified-listings" className="hover:text-[#00ADB5] transition-colors no-underline">Verified Homes</a></li>
+            <li><a href="#how-it-works" onClick={(e) => handleNavClick(e, '#how-it-works')} className="hover:text-[#00ADB5] transition-colors no-underline">How It Works</a></li>
+            <li><a href="#choose-role" onClick={(e) => handleNavClick(e, '#choose-role')} className="hover:text-[#00ADB5] transition-colors no-underline">Marketplace Roles</a></li>
+            <li><a href="#horizontal-scroll" onClick={(e) => handleNavClick(e, '#horizontal-scroll')} className="hover:text-[#00ADB5] transition-colors no-underline">Area Intelligence</a></li>
+            <li><a href="#verified-listings" onClick={(e) => handleNavClick(e, '#verified-listings')} className="hover:text-[#00ADB5] transition-colors no-underline">Verified Homes</a></li>
           </ul>
         </div>
 
@@ -46,7 +61,6 @@ export default function Footer() {
           <ul className="space-y-2.5 text-sm text-[#EEEEEE]/80 font-medium list-none p-0">
             <li><a href="/signup?role=renter" className="hover:text-[#00ADB5] transition-colors no-underline">Renters & Buyers</a></li>
             <li><a href="/signup?role=owner" className="hover:text-[#00ADB5] transition-colors no-underline">Property Owners</a></li>
-            <li><a href="/signup?role=broker" className="hover:text-[#00ADB5] transition-colors no-underline">Licensed Brokers</a></li>
             <li><a href="/signup?role=company" className="hover:text-[#00ADB5] transition-colors no-underline">Enterprise HR</a></li>
           </ul>
         </div>

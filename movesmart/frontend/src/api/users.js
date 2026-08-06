@@ -8,6 +8,11 @@ export const getUsers = async (params = {}) => {
   return response.data;
 };
 
+export const createAdminAccount = async (adminData) => {
+  const response = await api.post('/admin/users', adminData);
+  return response.data;
+};
+
 export const updateUserStatus = async (userId, accountStatus) => {
   const response = await api.patch(`/admin/users/${userId}`, { account_status: accountStatus });
   return response.data;

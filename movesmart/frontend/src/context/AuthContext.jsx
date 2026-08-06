@@ -148,6 +148,20 @@ export function AuthProvider({ children }) {
     }
   };
 
+  const unlockFeatureInUser = (feature) => {
+    setUser((prev) => {
+      if (!prev) return prev;
+      const currentUnlocked = prev.unlocked_features || [];
+      if (currentUnlocked.includes(feature)) return prev;
+      const updated = {
+        ...prev,
+        unlocked_features: [...currentUnlocked, feature],
+      };
+      localStorage.setItem('user', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -159,6 +173,7 @@ export function AuthProvider({ children }) {
         register,
         setRole,
         updateProfile,
+        unlockFeatureInUser,
         logout,
       }}
     >

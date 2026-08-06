@@ -108,10 +108,10 @@ export default function HorizontalScrollytelling() {
       </div>
 
       {/* Pinned Horizontal Sliding Track */}
-      <div className="w-full overflow-hidden">
+      <div className="w-full overflow-x-auto md:overflow-hidden pb-4 md:pb-0">
         <div
           ref={trackRef}
-          className="inline-flex gap-8 px-6 md:px-16 items-center"
+          className="inline-flex gap-4 sm:gap-8 px-4 sm:px-6 md:px-16 items-center"
           style={{ willChange: 'transform' }}
         >
           {PANELS.map((panel, idx) => {
@@ -119,7 +119,7 @@ export default function HorizontalScrollytelling() {
             return (
               <div
                 key={panel.id}
-                className="interactive-hover group w-[340px] md:w-[480px] flex-shrink-0 bg-white/85 backdrop-blur-xl rounded-3xl p-8 border border-white/90 shadow-2xl transition-all duration-300 hover:bg-white"
+                className="interactive-hover group w-[85vw] max-w-[340px] md:w-[480px] flex-shrink-0 bg-white/85 backdrop-blur-xl rounded-3xl p-6 sm:p-8 border border-white/90 shadow-xl transition-all duration-300 hover:bg-white"
               >
                 <div className="flex items-center justify-between mb-6">
                   <div className="flex items-center gap-2.5">

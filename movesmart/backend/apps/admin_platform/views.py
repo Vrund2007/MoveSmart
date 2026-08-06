@@ -6,7 +6,8 @@ from rest_framework.views import APIView
 from rest_framework import status
 from apps.common.responses import api_response
 from apps.accounts.permissions import IsAdmin
-from db import admin_platform_repo, listings_repo, audit_repo
+from django.contrib.auth.hashers import make_password
+from db import admin_platform_repo, listings_repo, audit_repo, users_repo
 from .serializers import BulkListingActionSerializer, UserStatusUpdateSerializer
 
 
@@ -20,7 +21,7 @@ class AdminDashboardView(APIView):
 
 
 class AdminUsersView(APIView):
-    """GET /api/admin/users — List user registry with role & search filters."""
+    """GET / POST /api/admin/users — List user registry or create Admin user account."""
     permission_classes = [IsAdmin]
 
     def get(self, request):
@@ -30,6 +31,31 @@ class AdminUsersView(APIView):
 
         users = admin_platform_repo.get_all_users(role=role, search=search, account_status=account_status)
         return api_response(data=users, message="User registry retrieved.")
+
+    def post(self, request):
+        email = str(request.data.get("email") or "").strip()
+        password = str(request.data.get("password") or "").strip()
+        name = str(request.data.get("name") or "Admin User").strip()
+
+        if not email or not password:
+            return api_response(message="Email and password are required.", status_code=status.HTTP_400_BAD_REQUEST)
+
+        existing = users_repo.get_user_by_email(email)
+        if existing:
+            return api_response(message="An account with this email already exists.", status_code=status.HTTP_409_CONFLICT)
+
+        password_hash = make_password(password)
+        new_admin = users_repo.create_admin_user(email=email, password_hash=password_hash, name=name)
+
+        audit_repo.log_admin_action(
+            actor_id=str(request.user.id),
+            actor_email=request.user.email,
+            action="admin_account_create",
+            target_type="user",
+            target_id=new_admin["_id"],
+            details=f"New Admin account '{email}' created by Super Admin"
+        )
+        return api_response(data=new_admin, message="Admin account created successfully.", status_code=status.HTTP_201_CREATED)
 
 
 class AdminUserDetailView(APIView):

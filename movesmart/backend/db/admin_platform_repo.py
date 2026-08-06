@@ -15,22 +15,118 @@ def _serialize(doc: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def get_admin_dashboard_summary() -> Dict[str, Any]:
-    """Aggregate enterprise metrics across users, properties, visits, chats, and system health."""
+    """Aggregate enterprise metrics dynamically from MongoDB across users, properties, visits, chats, and localities."""
     db = get_db()
 
     # User breakdown by role
     total_users = db["users"].count_documents({})
     seekers_count = db["users"].count_documents({"role": "find_accommodation"})
     owners_count = db["users"].count_documents({"role": "property_owner"})
-    brokers_count = db["users"].count_documents({"role": "broker"})
     companies_count = db["users"].count_documents({"role": "company_hr"})
     admins_count = db["users"].count_documents({"role": "admin"})
 
-    # Listing status breakdown
+    # Listing status & source breakdown
     total_listings = db["listings"].count_documents({})
     pending_listings = db["listings"].count_documents({"status": "pending_review"})
     approved_listings = db["listings"].count_documents({"status": "approved"})
     rejected_listings = db["listings"].count_documents({"status": "rejected"})
+
+    # Real Landlords vs Scraped (Real Landlord = has valid owner_id)
+    real_landlord_listings = db["listings"].count_documents({
+        "owner_id": {"$ne": None, "$exists": True}
+    })
+    scraped_listings = max(0, total_listings - real_landlord_listings)
+
+    # 1. RENTAL LISTINGS AGGREGATION (deal_type = 'rent')
+    rent_query = {"deal_type": {"$regex": "^rent$", "$options": "i"}}
+    rent_count = db["listings"].count_documents(rent_query)
+
+    rent_agg = list(db["listings"].aggregate([
+        {"$match": {
+            "deal_type": {"$regex": "^rent$", "$options": "i"},
+            "locality": {"$ne": None, "$ne": ""}
+        }},
+        {"$project": {
+            "locality": 1,
+            "price_val": {"$ifNull": ["$price", "$rent"]}
+        }},
+        {"$group": {
+            "_id": "$locality",
+            "listings_count": {"$sum": 1},
+            "avg_rent": {"$avg": "$price_val"},
+            "min_rent": {"$min": "$price_val"},
+            "max_rent": {"$max": "$price_val"}
+        }},
+        {"$sort": {"listings_count": -1}},
+        {"$limit": 10}
+    ]))
+
+    rent_gmv_agg = list(db["listings"].aggregate([
+        {"$match": {"deal_type": {"$regex": "^rent$", "$options": "i"}}},
+        {"$project": {"price_val": {"$ifNull": ["$price", "$rent"]}}},
+        {"$group": {"_id": None, "totalRent": {"$sum": "$price_val"}, "avgRent": {"$avg": "$price_val"}}}
+    ]))
+    rent_total_gmv = rent_gmv_agg[0]["totalRent"] if rent_gmv_agg else 0
+    rent_avg_price = int(rent_gmv_agg[0]["avgRent"]) if rent_gmv_agg else 0
+
+    rent_localities_list = []
+    for loc in rent_agg:
+        if loc["_id"]:
+            min_r = int(loc.get("min_rent") or 0)
+            max_r = int(loc.get("max_rent") or 0)
+            avg_r = int(loc.get("avg_rent") or 0)
+            rent_localities_list.append({
+                "name": str(loc["_id"]),
+                "listings": loc["listings_count"],
+                "avgRent": avg_r,
+                "range": f"₹{min_r:,} - ₹{max_r:,}"
+            })
+
+    # 2. SALE / BUY LISTINGS AGGREGATION (deal_type = 'buy' or 'sale')
+    sale_query = {"deal_type": {"$in": ["buy", "sale"]}}
+    sale_count = db["listings"].count_documents(sale_query)
+
+    sale_agg = list(db["listings"].aggregate([
+        {"$match": {
+            "deal_type": {"$in": ["buy", "sale"]},
+            "locality": {"$ne": None, "$ne": ""}
+        }},
+        {"$project": {
+            "locality": 1,
+            "price_val": {"$ifNull": ["$price", "$rent"]}
+        }},
+        {"$group": {
+            "_id": "$locality",
+            "listings_count": {"$sum": 1},
+            "avg_price": {"$avg": "$price_val"},
+            "min_price": {"$min": "$price_val"},
+            "max_price": {"$max": "$price_val"}
+        }},
+        {"$sort": {"listings_count": -1}},
+        {"$limit": 10}
+    ]))
+
+    sale_localities_list = []
+    for loc in sale_agg:
+        if loc["_id"]:
+            min_p = int(loc.get("min_price") or 0)
+            max_p = int(loc.get("max_price") or 0)
+            avg_p = int(loc.get("avg_price") or 0)
+
+            def fmt_curr(val):
+                if val >= 10000000:
+                    return f"₹{(val / 10000000):.2f} Cr"
+                elif val >= 100000:
+                    return f"₹{(val / 100000):.1f} L"
+                return f"₹{val:,}"
+
+            sale_localities_list.append({
+                "name": str(loc["_id"]),
+                "listings": loc["listings_count"],
+                "avgPrice": avg_p,
+                "avgPriceFormatted": fmt_curr(avg_p),
+                "range": f"{fmt_curr(min_p)} - {fmt_curr(max_p)}"
+            })
 
     # Platform engagement metrics
     pending_visits = db["visits"].count_documents({"status": "pending"})
@@ -41,7 +137,6 @@ def get_admin_dashboard_summary() -> Dict[str, Any]:
             "total_users": total_users,
             "seekers": seekers_count,
             "owners": owners_count,
-            "brokers": brokers_count,
             "companies": companies_count,
             "admins": admins_count
         },
@@ -49,8 +144,17 @@ def get_admin_dashboard_summary() -> Dict[str, Any]:
             "total_listings": total_listings,
             "pending": pending_listings,
             "approved": approved_listings,
-            "rejected": rejected_listings
+            "rejected": rejected_listings,
+            "real_landlords": real_landlord_listings,
+            "scraped": scraped_listings,
+            "rent_count": rent_count,
+            "sale_count": sale_count,
+            "total_gmv": rent_total_gmv,
+            "avg_rent": rent_avg_price
         },
+        "rent_localities": rent_localities_list,
+        "sale_localities": sale_localities_list,
+        "localities": rent_localities_list,
         "engagement_metrics": {
             "pending_visits": pending_visits,
             "active_conversations": active_conversations
@@ -98,117 +202,20 @@ def update_user_status(user_id: str, new_status: str) -> bool:
     """Suspend or activate user account."""
     db = get_db()
     try:
-        u_oid = ObjectId(user_id)
+        res = db["users"].update_one(
+            {"_id": ObjectId(user_id)},
+            {"$set": {"account_status": new_status, "updated_at": datetime.now(timezone.utc)}}
+        )
+        return res.modified_count > 0
     except Exception:
         return False
-
-    res = db["users"].update_one(
-        {"_id": u_oid},
-        {"$set": {"account_status": new_status, "updated_at": datetime.now(timezone.utc)}}
-    )
-    return res.modified_count > 0
 
 
 def delete_user(user_id: str) -> bool:
-    """Delete a user record."""
+    """Permanently delete user account."""
     db = get_db()
     try:
-        u_oid = ObjectId(user_id)
+        res = db["users"].delete_one({"_id": ObjectId(user_id)})
+        return res.deleted_count > 0
     except Exception:
         return False
-
-    res = db["users"].delete_one({"_id": u_oid})
-    return res.deleted_count > 0
-
-
-def bulk_update_listing_status(listing_ids: List[str], decision: str, reason: Optional[str] = None) -> int:
-    """Execute bulk approval / rejection / archive on properties."""
-    db = get_db()
-    valid_oids = []
-    for lid in listing_ids:
-        try:
-            valid_oids.append(ObjectId(lid))
-        except Exception:
-            continue
-
-    if not valid_oids:
-        return 0
-
-    update_fields: Dict[str, Any] = {
-        "status": decision,
-        "updated_at": datetime.now(timezone.utc)
-    }
-    if reason:
-        update_fields["rejection_reason"] = reason
-
-    res = db["listings"].update_many(
-        {"_id": {"$in": valid_oids}},
-        {"$set": update_fields}
-    )
-    return res.modified_count
-
-
-def get_all_brokers() -> List[Dict[str, Any]]:
-    """Fetch broker partners with active listings & client counts."""
-    db = get_db()
-    cursor = db["users"].find({"role": "broker"}).sort("created_at", -1)
-    brokers = []
-    for doc in cursor:
-        b = _serialize(doc)
-        b.pop("password_hash", None)
-        b_id = b["_id"]
-
-        active_listings = db["listings"].count_documents({"owner_id": ObjectId(b_id)})
-        active_clients = db["clients"].count_documents({"broker_id": b_id})
-
-        b["active_listings_count"] = active_listings
-        b["active_clients_count"] = active_clients
-        b.setdefault("verified", True)
-        b.setdefault("account_status", "active")
-        brokers.append(b)
-    return brokers
-
-
-def get_all_companies() -> List[Dict[str, Any]]:
-    """Fetch corporate HR accounts with employee and batch counts."""
-    db = get_db()
-    cursor = db["users"].find({"role": "company_hr"}).sort("created_at", -1)
-    companies = []
-    for doc in cursor:
-        c = _serialize(doc)
-        c.pop("password_hash", None)
-        c_id = c["_id"]
-
-        emp_count = db["company_employees"].count_documents({"company_id": c_id})
-        batch_count = db["relocation_batches"].count_documents({"company_id": c_id})
-
-        c["employees_count"] = emp_count
-        c["batches_count"] = batch_count
-        c.setdefault("verified", True)
-        c.setdefault("account_status", "active")
-        companies.append(c)
-    return companies
-
-
-def get_ai_ml_metrics() -> Dict[str, Any]:
-    """Fetch privacy-safe AI and ML operational health metrics."""
-    return {
-        "ai_metrics": {
-            "provider": "Google Gemini API",
-            "total_requests": 1420,
-            "successful_requests": 1412,
-            "failed_requests": 8,
-            "average_response_ms": 320,
-            "quota_limit": 10000,
-            "quota_used": 1420,
-            "status": "healthy"
-        },
-        "ml_metrics": {
-            "rent_model_version": "v1.2-LightGBM",
-            "anomaly_model_version": "v1.0-IsolationForest",
-            "total_inferences": 3850,
-            "anomaly_detections": 12,
-            "average_inference_ms": 14,
-            "status": "operational"
-        }
-    }

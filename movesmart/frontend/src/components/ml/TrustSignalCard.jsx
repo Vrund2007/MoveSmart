@@ -21,7 +21,11 @@ export default function TrustSignalCard({ trustSignal }) {
     }`}>
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-2">
-          <span className="text-xl">{is_suspicious ? '⚠️' : '🛡️'}</span>
+          <span className={`px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wider ${
+            is_suspicious ? 'bg-amber-600 text-white' : 'bg-emerald-600 text-white'
+          }`}>
+            {is_suspicious ? 'Anomaly Flag' : 'Verified Listing'}
+          </span>
           <div>
             <h4 className="font-bold text-xs text-text-primary uppercase tracking-wider">
               {is_suspicious ? 'Market Anomaly Signal' : 'Verified Market Benchmark'}

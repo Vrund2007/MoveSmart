@@ -20,25 +20,43 @@ import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import InteractiveLocationPicker from '../components/common/InteractiveLocationPicker';
-
+import PaywallBanner from '../components/common/PaywallBanner';
+import HubHeroCarousel from '../components/dashboard/HubHeroCarousel';
+import {
+  HubIcon,
+  RecommendationsIcon,
+  BrowseIcon,
+  BookmarkIcon,
+  CompareIcon,
+  CalendarIcon,
+  MessageIcon,
+  CostIcon,
+  CommuteIcon,
+  UserIcon,
+  LockIcon,
+  MenuIcon,
+  XIcon,
+  MapPinIcon,
+} from '../components/common/Icons';
 
 // Lazy-loaded page-level components for new tabs
 import VisitScheduler from './VisitScheduler';
 import CompareListings from './CompareListings';
 import Inbox from './Inbox';
 import Profile from './Profile';
+import { getUserDisplayName } from '../utils/user';
 
 const SIDEBAR_TABS = [
-  { id: 'hub',             icon: '🏠', label: 'Dashboard Hub'           },
-  { id: 'recommendations', icon: '⭐', label: 'Area Recommendations'    },
-  { id: 'browse',          icon: '🔍', label: 'Browse Listings'         },
-  { id: 'saved',           icon: '🔖', label: 'Saved Bookmarks'         },
-  { id: 'compare',         icon: '⚖️', label: 'Compare Listings'        },
-  { id: 'visits',          icon: '📅', label: 'Visit Scheduler'         },
-  { id: 'inbox',           icon: '💬', label: 'Inbox'                   },
-  { id: 'cost',            icon: '💰', label: 'Cost Estimator'          },
-  { id: 'commute',         icon: '🚗', label: 'Commute Calculator'      },
-  { id: 'profile',         icon: '👤', label: 'My Profile'              },
+  { id: 'hub',             label: 'Dashboard Hub',        Icon: HubIcon             },
+  { id: 'recommendations', label: 'Area Recommendations', Icon: RecommendationsIcon },
+  { id: 'browse',          label: 'Browse Properties',    Icon: BrowseIcon          },
+  { id: 'saved',           label: 'Saved Bookmarks',      Icon: BookmarkIcon        },
+  { id: 'compare',         label: 'Compare Listings',     Icon: CompareIcon         },
+  { id: 'visits',          label: 'Visit Scheduler',      Icon: CalendarIcon        },
+  { id: 'inbox',           label: 'Direct Messages',      Icon: MessageIcon         },
+  { id: 'cost',            label: 'Cost Estimator',       Icon: CostIcon            },
+  { id: 'commute',         label: 'Commute Calculator',   Icon: CommuteIcon         },
+  { id: 'profile',         label: 'My Account',           Icon: UserIcon            },
 ];
 
 // ── Profile Completion Helper ──────────────────────────────────────────────
@@ -71,26 +89,32 @@ function ProfileCompletion({ user }) {
 }
 
 // ── Quick Action Card ──────────────────────────────────────────────────────
-function QuickAction({ icon, label, desc, onClick, color = 'bg-primary/10 text-primary' }) {
+function QuickAction({ title, desc, onClick, badgeText }) {
   return (
     <button
       onClick={onClick}
-      className="bg-white border border-border rounded-xl p-4 text-left hover:shadow-md hover:border-primary/40 transition-all group flex flex-col gap-2"
+      className="bg-white border border-border rounded-2xl p-5 text-left hover:shadow-lg hover:border-primary/40 transition-all group flex flex-col justify-between gap-3 relative overflow-hidden"
     >
-      <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl ${color}`}>
-        {icon}
+      <div className="flex justify-between items-center">
+        <span className="text-[10px] font-extrabold uppercase tracking-wider text-primary bg-primary/10 px-2.5 py-1 rounded-full">
+          {badgeText || 'Action'}
+        </span>
+        <span className="text-xs font-bold text-text-secondary group-hover:text-primary transition-colors">
+          →
+        </span>
       </div>
       <div>
-        <p className="text-xs font-bold text-text-primary group-hover:text-primary transition-colors">{label}</p>
-        <p className="text-[10px] text-text-secondary mt-0.5 leading-relaxed">{desc}</p>
+        <p className="text-sm font-extrabold text-text-primary group-hover:text-primary transition-colors">
+          {title}
+        </p>
+        <p className="text-xs text-text-secondary mt-1 leading-relaxed">{desc}</p>
       </div>
-
     </button>
   );
 }
 
 export default function Dashboard() {
-  const { user, logout } = useContext(AuthContext);
+  const { user, unlockFeatureInUser, logout } = useContext(AuthContext);
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -248,6 +272,9 @@ export default function Dashboard() {
 
 
   const fetchCommuteData = async () => {
+    if (document.activeElement && typeof document.activeElement.blur === 'function') {
+      document.activeElement.blur();
+    }
     setCommuteLoading(true);
     setCommuteError('');
     try {
@@ -273,13 +300,22 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
-    fetchRecommendations();
     const initialF = getInitialFiltersFromUrl();
     fetchApprovedListings(initialF, urlPage, false);
     fetchSavedListings();
-    fetchCostData();
     fetchUpcomingVisits();
   }, [urlPage]);
+
+  useEffect(() => {
+    if ((activeTab === 'recommendations' || activeTab === 'hub') && recommendations.length === 0) {
+      if ((user?.unlocked_features || []).includes('recommendations')) {
+        fetchRecommendations();
+      }
+    }
+    if (activeTab === 'cost' && !costData) {
+      fetchCostData();
+    }
+  }, [activeTab, user, recommendations.length, costData]);
 
 
 
@@ -293,140 +329,325 @@ export default function Dashboard() {
       } else {
         await saveListing(listingId);
       }
-      fetchSavedListings();
     } catch {
       alert('Failed to update bookmark.');
     }
   };
 
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const handleLogout = () => { logout(); navigate('/'); };
 
   return (
-    <div className="flex h-screen bg-[#EEEEEE] font-sans text-[#222831] overflow-hidden relative">
-      {/* Sidebar */}
-      <aside className="w-64 bg-white border-r border-[#D9D9D9] flex flex-col justify-between flex-shrink-0 z-20 overflow-y-auto">
-        <div>
-          {/* Brand */}
-          <div className="p-6 border-b border-[#D9D9D9] flex items-center space-x-3">
-            <span className="text-2xl">🏠</span>
-            <div>
-              <span className="font-extrabold text-xl tracking-tight text-[#222831]">MoveSmart</span>
-              <span className="block text-[9px] font-bold text-[#00ADB5] uppercase tracking-wider">Accommodation Seeker</span>
+    <div className="flex flex-col md:flex-row h-screen bg-[#F9FAFB] font-sans text-[#222831] overflow-hidden relative">
+      {/* Mobile Header Bar with 3-Lines Menu Icon on Left */}
+      <div className="md:hidden bg-slate-900 text-white flex-shrink-0 z-30">
+        <div className="p-3.5 flex justify-between items-center border-b border-white/10">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setIsMobileMenuOpen(true)}
+              className="p-2 text-white hover:text-teal-400 focus:outline-none transition-colors rounded-xl bg-white/10 border border-white/15 flex items-center justify-center gap-1.5 flex-shrink-0"
+              aria-label="Open Mobile Navigation Menu"
+            >
+              <MenuIcon className="w-5 h-5 text-white" />
+            </button>
+
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-full p-0.5 bg-gradient-to-tr from-[#00ADB5] to-[#222831] border border-white/20 shadow-xs flex-shrink-0">
+                <img
+                  src="/smart-Building.png"
+                  alt="MoveSmart Logo"
+                  className="w-full h-full rounded-full object-cover bg-white"
+                />
+              </div>
+              <div>
+                <span className="font-black text-base text-white block leading-none">MoveSmart</span>
+                <span className="text-[8px] font-extrabold text-teal-400 uppercase tracking-wider block mt-0.5">ACCOMMODATION SEEKER</span>
+              </div>
             </div>
           </div>
 
-          {/* User Summary */}
+          <span className="text-[9px] font-extrabold bg-[#00ADB5]/20 text-teal-300 px-2.5 py-1 rounded-full border border-teal-500/30 uppercase">
+            Seeker
+          </span>
+        </div>
+      </div>
+
+      {/* Slide-Over Mobile Sidebar Drawer (Left-Aligned) */}
+      {isMobileMenuOpen && (
+        <div className="fixed inset-0 z-50 md:hidden flex justify-start">
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
+            onClick={() => setIsMobileMenuOpen(false)}
+          />
+
+          {/* Drawer Panel Sliding Left-to-Right */}
+          <div className="relative left-0 w-80 max-w-[85vw] bg-white h-full shadow-2xl flex flex-col justify-between z-10 overflow-y-auto transform transition-transform">
+            <div>
+              {/* Drawer Brand Header */}
+              <div className="p-4 border-b border-border flex justify-between items-center bg-slate-900 text-white">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-full p-0.5 bg-gradient-to-tr from-[#00ADB5] to-[#222831] border border-white/20 shadow-xs flex-shrink-0">
+                    <img
+                      src="/smart-Building.png"
+                      alt="MoveSmart Logo"
+                      className="w-full h-full rounded-full object-cover bg-white"
+                    />
+                  </div>
+                  <div>
+                    <span className="font-extrabold text-base tracking-tight text-white block leading-none">MoveSmart</span>
+                    <span className="block text-[8px] font-extrabold text-teal-400 uppercase tracking-wider mt-0.5">SEEKER MENU</span>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="p-1.5 text-gray-300 hover:text-white rounded-lg hover:bg-white/10 transition-colors"
+                >
+                  <XIcon className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* User Profile Summary */}
+              {user && (
+                <div className="px-5 py-4 border-b border-border space-y-2 bg-surface">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#00ADB5] to-teal-600 flex items-center justify-center font-black text-white text-sm flex-shrink-0 shadow-sm">
+                      {getUserDisplayName(user)[0]?.toUpperCase() || 'U'}
+                    </div>
+                    <div className="overflow-hidden">
+                      <p className="text-xs font-black text-text-primary truncate">Hello, {getUserDisplayName(user)}</p>
+                      <p className="text-[10px] text-text-secondary font-medium truncate">{user.email}</p>
+                      <span className="text-[9px] font-extrabold text-[#00ADB5] uppercase tracking-wider block mt-0.5">Seeker Account</span>
+                    </div>
+                  </div>
+                  <ProfileCompletion user={user} />
+                </div>
+              )}
+
+              {/* Navigation Links */}
+              <nav className="p-3 space-y-1">
+                {SIDEBAR_TABS.map((tab) => {
+                  const isActive = activeTab === tab.id;
+                  const isLocked = (tab.id === 'recommendations' || tab.id === 'commute') && !(user?.unlocked_features || []).includes(tab.id);
+                  let countBadge = null;
+                  if (tab.id === 'saved' && savedItems.length > 0) countBadge = savedItems.length;
+                  if (tab.id === 'visits' && upcomingVisits.length > 0) countBadge = upcomingVisits.length;
+
+                  const IconComponent = tab.Icon;
+
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => {
+                        setActiveTab(tab.id);
+                        setIsMobileMenuOpen(false);
+                      }}
+                      className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-bold transition-all ${
+                        isActive
+                          ? 'bg-[#00ADB5] text-white shadow-md'
+                          : 'text-text-primary hover:bg-surface'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        {IconComponent && <IconComponent className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-white' : 'text-[#00ADB5]'}`} />}
+                        <span className="whitespace-nowrap truncate">{tab.label}</span>
+                      </div>
+
+                      {isLocked ? (
+                        <span className={`p-1.5 rounded-full flex-shrink-0 ${
+                          isActive ? 'bg-white/20 text-white' : 'bg-amber-50 text-amber-600 border border-amber-200'
+                        }`}>
+                          <LockIcon className="w-3.5 h-3.5" />
+                        </span>
+                      ) : countBadge ? (
+                        <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full flex-shrink-0 ${
+                          isActive ? 'bg-white/30 text-white' : 'bg-primary/10 text-primary'
+                        }`}>
+                          {countBadge}
+                        </span>
+                      ) : null}
+                    </button>
+                  );
+                })}
+              </nav>
+            </div>
+
+            {/* Professional Logout Footer Button */}
+            <div className="p-4 border-t border-border bg-surface">
+              <button
+                onClick={() => {
+                  setIsMobileMenuOpen(false);
+                  handleLogout();
+                }}
+                className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold text-rose-600 bg-rose-50 hover:bg-rose-600 hover:text-white transition-all shadow-xs border border-rose-200/60"
+              >
+                <span>Logout Account</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Desktop Sidebar — Expanded w-72 for Single-Line Text, Hidden Scrollbar */}
+      <aside className="hidden md:flex w-72 bg-white border-r border-border flex-col justify-between flex-shrink-0 z-20 overflow-y-auto no-scrollbar [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden shadow-xs">
+        <div>
+          {/* Brand Header with MoveSmart Circular Logo & Gradient Border */}
+          <div className="p-5 border-b border-border flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full p-0.5 bg-gradient-to-tr from-[#00ADB5] to-[#222831] border border-border shadow-xs flex-shrink-0">
+              <img
+                src="/smart-Building.png"
+                alt="MoveSmart Logo"
+                className="w-full h-full rounded-full object-cover bg-white"
+              />
+            </div>
+            <div>
+              <span className="font-extrabold text-xl tracking-tight text-[#222831] block leading-none">MoveSmart</span>
+              <span className="block text-[9px] font-extrabold text-[#00ADB5] uppercase tracking-wider mt-1">ACCOMMODATION SEEKER</span>
+            </div>
+          </div>
+
+          {/* User Profile Summary */}
           {user && (
-            <div className="px-4 py-3 border-b border-[#D9D9D9] space-y-2">
+            <div className="px-5 py-4 border-b border-border space-y-2.5">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary to-teal-500 flex items-center justify-center font-bold text-white text-sm flex-shrink-0">
-                  {user.email?.[0]?.toUpperCase() || 'U'}
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#00ADB5] to-teal-600 flex items-center justify-center font-black text-white text-base flex-shrink-0 shadow-sm">
+                  {getUserDisplayName(user)[0]?.toUpperCase() || 'U'}
                 </div>
                 <div className="overflow-hidden">
-                  <p className="text-xs font-bold text-text-primary truncate">{user.email}</p>
-                  <p className="text-[9px] text-text-secondary">Seeker</p>
+                  <p className="text-xs font-black text-text-primary truncate">Hello, {getUserDisplayName(user)}</p>
+                  <p className="text-[10px] text-text-secondary font-medium truncate">{user.email}</p>
+                  <span className="text-[9px] font-extrabold text-[#00ADB5] uppercase tracking-wider block mt-0.5">Seeker Account</span>
                 </div>
               </div>
               <ProfileCompletion user={user} />
             </div>
           )}
 
-          {/* Navigation */}
-          <nav className="p-3 space-y-0.5">
+          {/* Navigation Items — Single Line Whitespace-Nowrap */}
+          <nav className="p-3 space-y-1">
             {SIDEBAR_TABS.map((tab) => {
               const isActive = activeTab === tab.id;
-              let badge = null;
-              if (tab.id === 'saved') badge = savedItems.length;
-              if (tab.id === 'visits') badge = upcomingVisits.length;
+              const isLocked = (tab.id === 'recommendations' || tab.id === 'commute') && !(user?.unlocked_features || []).includes(tab.id);
+              let countBadge = null;
+              if (tab.id === 'saved' && savedItems.length > 0) countBadge = savedItems.length;
+              if (tab.id === 'visits' && upcomingVisits.length > 0) countBadge = upcomingVisits.length;
+
+              const IconComponent = tab.Icon;
+
               return (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-bold transition-all ${
-                    isActive ? 'bg-[#00ADB5] text-white shadow-sm' : 'text-[#393E46] hover:bg-[#EEEEEE]'
+                  className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-bold transition-all ${
+                    isActive
+                      ? 'bg-[#00ADB5] text-white shadow-md'
+                      : 'text-text-primary hover:bg-surface'
                   }`}
                 >
-                  <div className="flex items-center gap-2.5">
-                    <span className="text-sm">{tab.icon}</span>
-                    <span>{tab.label}</span>
+                  <div className="flex items-center gap-3 min-w-0">
+                    {IconComponent && <IconComponent className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-white' : 'text-[#00ADB5]'}`} />}
+                    <span className="whitespace-nowrap truncate">{tab.label}</span>
                   </div>
-                  {badge > 0 && (
-                    <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded-full ${
+
+                  {isLocked ? (
+                    <span className={`p-1.5 rounded-full flex-shrink-0 ${
+                      isActive ? 'bg-white/20 text-white' : 'bg-amber-50 text-amber-600 border border-amber-200'
+                    }`} title="Locked Feature — Payment required">
+                      <LockIcon className="w-3.5 h-3.5" />
+                    </span>
+                  ) : countBadge ? (
+                    <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full flex-shrink-0 ${
                       isActive ? 'bg-white/30 text-white' : 'bg-primary/10 text-primary'
                     }`}>
-                      {badge}
+                      {countBadge}
                     </span>
-                  )}
+                  ) : null}
                 </button>
               );
             })}
           </nav>
         </div>
 
-        {/* Footer: Logout */}
-        <div className="p-4 border-t border-[#D9D9D9]">
+        {/* Sidebar Footer — Premium Logout Button */}
+        <div className="p-4 border-t border-border">
           <button
             onClick={handleLogout}
-            className="w-full flex items-center justify-center space-x-2 py-2 rounded-lg text-xs font-bold text-[#EF4444] hover:bg-[#EF4444]/10 transition-colors"
+            className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold text-rose-600 bg-rose-50/80 hover:bg-rose-600 hover:text-white transition-all shadow-xs border border-rose-200/60"
           >
-            <span>🚪</span><span>Logout</span>
+            <span>Logout Account</span>
           </button>
         </div>
       </aside>
 
       {/* Main Panel */}
-      <main className="flex-1 flex flex-col overflow-hidden">
+      <main className="flex-1 flex flex-col overflow-hidden bg-[#F9FAFB]">
         {/* Header */}
-        <header className="bg-white border-b border-[#D9D9D9] h-16 flex items-center justify-between px-8 flex-shrink-0">
-          <h2 className="text-base font-bold text-[#222831] capitalize">
+        <header className="bg-white border-b border-border h-16 flex items-center justify-between px-6 sm:px-8 flex-shrink-0 shadow-xs">
+          <h2 className="text-base font-extrabold text-[#222831]">
             {SIDEBAR_TABS.find((t) => t.id === activeTab)?.label || activeTab}
           </h2>
-          <span className="text-xs font-semibold px-2.5 py-1 bg-[#EEEEEE] border border-[#D9D9D9] rounded-full text-[#393E46]">
-            Ahmedabad Region
+          <span className="text-xs font-extrabold px-3 py-1 bg-teal-50 border border-teal-200 rounded-full text-primary">
+            Ahmedabad Relocation Zone
           </span>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-8 bg-[#EEEEEE]">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
 
           {/* ── HUB TAB ─────────────────────────────────────────────── */}
           {activeTab === 'hub' && (
-            <div className="space-y-6 animate-fade-in">
-              {/* Welcome Banner */}
-              <div className="bg-gradient-to-r from-[#00ADB5] to-teal-600 rounded-xl p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 text-white shadow-lg">
-                <div>
-                  <h3 className="text-xl font-extrabold">Welcome back, {user?.email?.split('@')[0] || 'Seeker'} 👋</h3>
-                  <p className="text-sm opacity-90 mt-1">Your smart relocation hub — powered by rule-based recommendations and AI insights.</p>
-                </div>
-                <Button variant="secondary" size="sm" onClick={() => setActiveTab('browse')} className="bg-white text-primary font-bold border-0">
-                  Browse Properties →
-                </Button>
-              </div>
+            <div className="space-y-8 animate-fade-in">
+              {/* Automated Luxury Property Carousel */}
+              <HubHeroCarousel />
 
-              {/* Stats Row */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {/* Key Executive Metrics */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 {[
-                  { label: 'Saved Properties', value: savedItems.length, icon: '🔖', color: 'text-amber-600' },
-                  { label: 'Upcoming Visits', value: upcomingVisits.length, icon: '📅', color: 'text-blue-600' },
-                  { label: 'Area Scores', value: recommendations.length, icon: '⭐', color: 'text-primary' },
-                  { label: 'Active Listings', value: listings.length, icon: '🏘️', color: 'text-teal-600' },
+                  { label: 'Saved Bookmarks', value: savedItems.length, sub: 'Favorite properties', color: 'border-l-amber-500' },
+                  { label: 'Upcoming Visits', value: upcomingVisits.length, sub: 'Scheduled tours', color: 'border-l-blue-500' },
+                  { label: 'Locality Ratings', value: recommendations.length, sub: 'Scored districts', color: 'border-l-primary' },
+                  { label: 'Approved Properties', value: paginationMeta.total_count || listings.length, sub: 'Verified listings', color: 'border-l-emerald-500' },
                 ].map((stat) => (
-                  <Card key={stat.label} className="bg-white border border-border text-center py-4">
-                    <div className={`text-3xl font-extrabold ${stat.color}`}>{stat.value}</div>
-                    <div className="text-[10px] text-text-secondary font-bold mt-1 flex items-center justify-center gap-1">
-                      <span>{stat.icon}</span><span>{stat.label}</span>
-                    </div>
+                  <Card key={stat.label} className={`bg-white border border-border border-l-4 ${stat.color} p-5 space-y-1 shadow-sm`}>
+                    <div className="text-2xl font-black text-text-primary">{stat.value}</div>
+                    <div className="text-xs font-bold text-text-primary">{stat.label}</div>
+                    <p className="text-[10px] text-text-secondary font-medium">{stat.sub}</p>
                   </Card>
                 ))}
               </div>
 
-              {/* Quick Actions */}
+              {/* Relocation Action Matrix */}
               <div>
-                <h3 className="text-xs font-extrabold text-text-secondary uppercase tracking-wider mb-3">Quick Actions</h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <QuickAction icon="🔍" label="Browse Properties" desc="Explore verified, admin-approved listings" onClick={() => setActiveTab('browse')} color="bg-primary/10 text-primary" />
-                  <QuickAction icon="⚖️" label="Compare Listings" desc="Side-by-side property comparison matrix" onClick={() => setActiveTab('compare')} color="bg-teal-100 text-teal-700" />
-                  <QuickAction icon="📅" label="Schedule Visit" desc="Request property tours with owners" onClick={() => setActiveTab('visits')} color="bg-blue-100 text-blue-700" />
-                  <QuickAction icon="🤖" label="AI Relocation Guide" desc="Ask Gemini your relocation questions" onClick={() => {}} color="bg-purple-100 text-purple-700" />
+                <div className="flex justify-between items-center mb-3">
+                  <h3 className="text-xs font-extrabold text-text-secondary uppercase tracking-wider">
+                    Relocation Action Matrix
+                  </h3>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <QuickAction
+                    title="Browse Properties"
+                    desc="Explore verified, admin-approved rental listings"
+                    onClick={() => setActiveTab('browse')}
+                    badgeText="Verified"
+                  />
+                  <QuickAction
+                    title="Compare Listings"
+                    desc="Side-by-side property comparison matrix"
+                    onClick={() => setActiveTab('compare')}
+                    badgeText="Matrix"
+                  />
+                  <QuickAction
+                    title="Schedule Property Visit"
+                    desc="Request tours with verified platform owners"
+                    onClick={() => setActiveTab('visits')}
+                    badgeText="Schedule"
+                  />
+                  <QuickAction
+                    title="Direct Inbox Chat"
+                    desc="Send direct messages & voice notes to landlords"
+                    onClick={() => setActiveTab('inbox')}
+                    badgeText="Real-time"
+                  />
                 </div>
               </div>
 
@@ -434,34 +655,42 @@ export default function Dashboard() {
               {upcomingVisits.length > 0 && (
                 <div>
                   <div className="flex justify-between items-center mb-3">
-                    <h3 className="text-xs font-extrabold text-text-secondary uppercase tracking-wider">Upcoming Visits</h3>
-                    <button onClick={() => setActiveTab('visits')} className="text-xs text-primary font-bold hover:underline">View all →</button>
+                    <h3 className="text-xs font-extrabold text-text-secondary uppercase tracking-wider">
+                      Upcoming Property Visits
+                    </h3>
+                    <button onClick={() => setActiveTab('visits')} className="text-xs text-primary font-bold hover:underline">
+                      View All Visits →
+                    </button>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {upcomingVisits.map((v) => (
-                      <Card key={v._id} className="bg-white border border-border space-y-2">
+                      <Card key={v._id} className="bg-white border border-border p-4 space-y-2 shadow-sm">
                         <div className="flex justify-between items-center">
                           <span className="text-xs font-bold text-primary truncate">{v.listing?.locality || 'Property'}</span>
                           <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase ${
-                            v.status === 'confirmed' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                            v.status === 'confirmed' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-900'
                           }`}>{v.status}</span>
                         </div>
-                        <p className="text-xs font-semibold text-text-primary truncate">{v.listing?.title || 'Property Visit'}</p>
-                        <p className="text-[10px] text-text-secondary">📅 {v.scheduled_date} · {v.time_slot}</p>
+                        <p className="text-xs font-bold text-text-primary truncate">{v.listing?.title || 'Property Tour'}</p>
+                        <p className="text-[10px] text-text-secondary font-medium">Date: {v.scheduled_date} · {v.time_slot}</p>
                       </Card>
                     ))}
                   </div>
                 </div>
               )}
 
-              {/* Top Recommended Areas Preview */}
+              {/* Top Locality Recommendations */}
               {recommendations.length > 0 && (
                 <div>
                   <div className="flex justify-between items-center mb-3">
-                    <h3 className="text-xs font-extrabold text-text-secondary uppercase tracking-wider">Top Recommended Localities</h3>
-                    <button onClick={() => setActiveTab('recommendations')} className="text-xs text-primary font-bold hover:underline">View full scores →</button>
+                    <h3 className="text-xs font-extrabold text-text-secondary uppercase tracking-wider">
+                      Top Recommended Localities
+                    </h3>
+                    <button onClick={() => setActiveTab('recommendations')} className="text-xs text-primary font-bold hover:underline">
+                      View All Recommendations →
+                    </button>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {recommendations.slice(0, 3).map((item, idx) => (
                       <LocalityCard key={item.locality} item={item} rank={idx + 1} isTop={idx === 0} />
                     ))}
@@ -469,14 +698,18 @@ export default function Dashboard() {
                 </div>
               )}
 
-              {/* Saved Properties Preview */}
+              {/* Saved Properties */}
               {savedItems.length > 0 && (
                 <div>
                   <div className="flex justify-between items-center mb-3">
-                    <h3 className="text-xs font-extrabold text-text-secondary uppercase tracking-wider">Saved Properties</h3>
-                    <button onClick={() => setActiveTab('saved')} className="text-xs text-primary font-bold hover:underline">View all →</button>
+                    <h3 className="text-xs font-extrabold text-text-secondary uppercase tracking-wider">
+                      Saved Property Bookmarks
+                    </h3>
+                    <button onClick={() => setActiveTab('saved')} className="text-xs text-primary font-bold hover:underline">
+                      View All Saved →
+                    </button>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {savedItems.slice(0, 3).map((item) => {
                       const listing = item.listing;
                       if (!listing) return null;
@@ -496,40 +729,49 @@ export default function Dashboard() {
 
           {/* ── RECOMMENDATIONS TAB ──────────────────────────────────── */}
           {activeTab === 'recommendations' && (
-            <div className="space-y-6 animate-fade-in">
-              <Card className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white border-primary">
-                <div>
-                  <h3 className="font-bold text-lg text-text-primary">Locality Recommendation Engine</h3>
-                  <p className="text-xs text-text-secondary mt-1">
-                    Weighted district scoring based on your rent budget (₹{(user?.role_profile?.max_budget || user?.role_profile?.rent_budget || 25000).toLocaleString()}) and commute preferences.
-                  </p>
-                </div>
-                <Button variant="primary" size="sm" onClick={fetchRecommendations} loading={recLoading} className="mt-3 sm:mt-0">
-                  Re-score Localities
-                </Button>
-              </Card>
-
-              {recLoading ? (
-                <div className="py-16 text-center"><LoadingSpinner size="lg" message="Calculating weighted district recommendation scores..." /></div>
-              ) : recommendations.length === 0 ? (
-                <Card className="text-center py-12 text-xs text-text-secondary">
-                  No recommendation scores returned. Complete your onboarding profile to calculate scores.
+            !(user?.unlocked_features || []).includes('recommendations') ? (
+              <PaywallBanner
+                feature="recommendations"
+                title="Area Recommendations & Locality Insights"
+                description="Get weighted AI district scoring based on your rent budget, neighborhood safety rating, livability, and preferred amenities."
+                user={user}
+                onUnlocked={() => unlockFeatureInUser('recommendations')}
+              />
+            ) : (
+              <div className="space-y-6 animate-fade-in">
+                <Card className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white border-primary">
+                  <div>
+                    <h3 className="font-bold text-lg text-text-primary">Locality Recommendation Engine</h3>
+                    <p className="text-xs text-text-secondary mt-1">
+                      Weighted district scoring based on your rent budget (₹{(user?.role_profile?.max_budget || user?.role_profile?.rent_budget || 25000).toLocaleString()}) and commute preferences.
+                    </p>
+                  </div>
+                  <Button variant="primary" size="sm" onClick={fetchRecommendations} loading={recLoading} className="mt-3 sm:mt-0">
+                    Re-score Localities
+                  </Button>
                 </Card>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  {recommendations.map((item, index) => (
-                    <LocalityCard
-                      key={item.locality}
-                      item={item}
-                      rank={index + 1}
-                      isTop={index === 0}
-                      onSelectLocality={handleSelectLocalityFromCard}
-                    />
-                  ))}
-                </div>
 
-              )}
-            </div>
+                {recLoading ? (
+                  <div className="py-16 text-center"><LoadingSpinner size="lg" message="Calculating weighted district recommendation scores..." /></div>
+                ) : recommendations.length === 0 ? (
+                  <Card className="text-center py-12 text-xs text-text-secondary">
+                    No recommendation scores returned. Complete your onboarding profile to calculate scores.
+                  </Card>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {recommendations.map((item, index) => (
+                      <LocalityCard
+                        key={item.locality}
+                        item={item}
+                        rank={index + 1}
+                        isTop={index === 0}
+                        onSelectLocality={handleSelectLocalityFromCard}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )
           )}
 
           {/* ── BROWSE TAB ───────────────────────────────────────────── */}
@@ -618,28 +860,127 @@ export default function Dashboard() {
 
           {/* ── SAVED TAB ────────────────────────────────────────────── */}
           {activeTab === 'saved' && (
-            <div className="space-y-6 animate-fade-in">
-              <div className="flex justify-between items-center">
-                <h3 className="font-bold text-lg text-text-primary">Saved Properties Collection</h3>
-                <span className="text-xs text-text-secondary font-bold">{savedItems.length} saved</span>
+            <div className="space-y-6 animate-fade-in font-sans">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white p-5 rounded-2xl border border-border shadow-xs gap-3">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-extrabold text-[#00ADB5] bg-primary/10 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                      Bookmarked Listings
+                    </span>
+                    <span className="text-xs text-text-secondary font-extrabold bg-surface px-2.5 py-0.5 rounded-full border border-border">
+                      {savedItems.length} Saved {savedItems.length === 1 ? 'Property' : 'Properties'}
+                    </span>
+                  </div>
+                  <h3 className="font-black text-xl text-text-primary mt-1">Saved Properties Collection</h3>
+                  <p className="text-xs text-text-secondary font-medium">
+                    Quick access portfolio of saved homes for easy viewing and side-by-side comparison.
+                  </p>
+                </div>
+
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => navigate('/dashboard?tab=browse')}
+                  className="font-bold text-xs rounded-xl px-4 py-2"
+                >
+                  Browse More Properties
+                </Button>
               </div>
+
               {savedLoading ? (
-                <div className="py-16 text-center"><LoadingSpinner size="lg" message="Loading your bookmarks..." /></div>
+                <div className="py-16 text-center"><LoadingSpinner size="lg" message="Loading your saved bookmarks..." /></div>
               ) : savedItems.length === 0 ? (
-                <Card className="text-center py-12 text-xs text-text-secondary">
-                  You haven't bookmarked any properties yet. Use the Browse tab to save listings.
+                <Card className="text-center py-16 text-xs text-text-secondary bg-white border border-border rounded-2xl space-y-3 p-8">
+                  <div className="w-14 h-14 rounded-full bg-surface border border-border flex items-center justify-center mx-auto text-[#00ADB5]">
+                    <BookmarkIcon className="w-7 h-7" />
+                  </div>
+                  <h4 className="text-sm font-extrabold text-text-primary">No Saved Properties Yet</h4>
+                  <p className="text-xs text-text-secondary max-w-sm mx-auto">
+                    You haven't saved any property listings to your portfolio yet. Browse properties and click the save button to bookmark homes.
+                  </p>
+                  <Button variant="primary" size="sm" onClick={() => navigate('/dashboard?tab=browse')} className="font-bold text-xs rounded-xl">
+                    Explore Properties
+                  </Button>
                 </Card>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                   {savedItems.map((item) => {
                     const listing = item.listing;
                     if (!listing) return null;
+                    const isBuy = String(listing.deal_type || '').toLowerCase() === 'buy';
+
                     return (
-                      <div key={item._id} className="relative">
-                        <ListingCard listing={listing} onClick={() => navigate(`/listings/${listing._id}`)} />
-                        <Button variant="danger" size="sm" className="mt-2 w-full text-xs" onClick={() => handleToggleBookmark(listing._id)}>
-                          Remove Bookmark
-                        </Button>
+                      <div
+                        key={item._id}
+                        className="bg-white rounded-2xl border border-border overflow-hidden shadow-xs hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300 group flex flex-col justify-between"
+                      >
+                        {/* Image Preview Header */}
+                        <div className="h-48 w-full bg-slate-900 relative overflow-hidden">
+                          <img
+                            src={listing.images?.[0] || 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=400&q=80'}
+                            alt={listing.title}
+                            referrerPolicy="no-referrer"
+                            onError={(e) => {
+                              e.target.onerror = null;
+                              e.target.src = 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=400&q=80';
+                            }}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                          />
+                          <div className="absolute top-3 left-3 flex gap-2">
+                            <span className={`text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider text-white shadow-xs ${
+                              isBuy ? 'bg-indigo-600' : 'bg-[#00ADB5]'
+                            }`}>
+                              {isBuy ? 'For Sale' : 'For Rent'}
+                            </span>
+                          </div>
+                          {listing.locality && (
+                            <span className="absolute top-3 right-3 bg-slate-950/70 backdrop-blur-md text-white text-[10px] font-extrabold px-2.5 py-0.5 rounded-full flex items-center gap-1 border border-white/15">
+                              <MapPinIcon className="w-3 h-3 text-teal-300" />
+                              <span>{listing.locality}</span>
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Card Details */}
+                        <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
+                          <div className="space-y-1">
+                            <h4 className="font-extrabold text-sm text-text-primary line-clamp-1 group-hover:text-[#00ADB5] transition-colors">
+                              {listing.title}
+                            </h4>
+                            <p className="text-base font-black text-[#00ADB5] tabular-nums">
+                              ₹{listing.price?.toLocaleString()}
+                              <span className="text-xs text-text-secondary font-semibold">
+                                {isBuy ? '' : ' / month'}
+                              </span>
+                            </p>
+                            <p className="text-xs text-text-secondary font-medium">
+                              {listing.bhk} BHK • {listing.locality} {listing.area_sqft ? `• ${listing.area_sqft} sqft` : ''}
+                            </p>
+                          </div>
+
+                          {/* Footer Action Buttons */}
+                          <div className="pt-3 border-t border-border flex items-center justify-between gap-2">
+                            <Button
+                              variant="primary"
+                              size="sm"
+                              onClick={() => navigate(`/listings/${listing._id}`)}
+                              className="font-bold text-xs rounded-xl flex-1 py-2"
+                            >
+                              View Details
+                            </Button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleToggleBookmark(listing._id);
+                              }}
+                              className="p-2 rounded-xl text-rose-600 hover:bg-rose-50 border border-rose-200 transition-colors text-xs font-bold flex items-center gap-1"
+                              title="Remove from saved collection"
+                            >
+                              <XIcon className="w-4 h-4" />
+                              <span className="hidden sm:inline">Remove</span>
+                            </button>
+                          </div>
+                        </div>
                       </div>
                     );
                   })}
@@ -797,79 +1138,89 @@ export default function Dashboard() {
 
           {/* ── COMMUTE TAB ──────────────────────────────────────────── */}
           {activeTab === 'commute' && (
-            <div className="space-y-6 max-w-2xl mx-auto animate-fade-in">
-              <Card className="space-y-4 bg-white border border-border">
-                <div className="flex justify-between items-center pb-3 border-b border-border">
-                  <div>
-                    <h3 className="font-bold text-lg text-text-primary">🚗 Premium Commute Intelligence Matrix</h3>
-                    <p className="text-xs text-text-secondary">Calculate real-time travel durations, distances, and monthly transit costs from any origin to your office.</p>
-                  </div>
-                </div>
-
-                {/* Saved Office Destination Validation Status */}
-                {user?.role_profile?.work_area ? (
-                  <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex justify-between items-center text-xs">
+            !(user?.unlocked_features || []).includes('commute') ? (
+              <PaywallBanner
+                feature="commute"
+                title="Smart Commute Calculator & Multi-Mode Insights"
+                description="Calculate exact travel times, transit costs, and route distances from your office or university to any neighborhood in Ahmedabad."
+                user={user}
+                onUnlocked={() => unlockFeatureInUser('commute')}
+              />
+            ) : (
+              <div className="space-y-6 max-w-2xl mx-auto animate-fade-in">
+                <Card className="space-y-4 bg-white border border-border">
+                  <div className="flex justify-between items-center pb-3 border-b border-border">
                     <div>
-                      <span className="text-[10px] font-extrabold uppercase text-emerald-800 tracking-wider block">📍 Saved Destination Office</span>
-                      <span className="font-bold text-emerald-950 text-xs">{user.role_profile.work_area}</span>
+                      <h3 className="font-bold text-lg text-text-primary">🚗 Premium Commute Intelligence Matrix</h3>
+                      <p className="text-xs text-text-secondary">Calculate real-time travel durations, distances, and monthly transit costs from any origin to your office.</p>
                     </div>
-                    <button
-                      onClick={() => setActiveTab('profile')}
-                      className="text-[11px] font-bold text-emerald-700 hover:underline"
-                    >
-                      Edit Office Location →
-                    </button>
                   </div>
-                ) : (
-                  <div className="bg-amber-50 border border-amber-300 rounded-xl p-4 flex justify-between items-center text-xs text-amber-900">
-                    <div>
-                      <span className="font-extrabold block text-sm">⚠️ No Office Location Saved in Profile</span>
-                      <span className="text-xs text-amber-800">Please set your office location in your profile first to compute accurate commute matrices.</span>
-                    </div>
-                    <Button variant="primary" size="sm" onClick={() => setActiveTab('profile')}>
-                      Go to Profile Settings →
-                    </Button>
-                  </div>
-                )}
 
-                {/* Interactive Origin Location Selector */}
-                <div className="pt-2">
-                  <InteractiveLocationPicker
-                    label="Select Starting Origin Location (Apartment / Neighborhood / Pin 📍)"
-                    value={currentFilters.locality || user?.role_profile?.preferred_localities?.[0] || 'Bodakdev, Ahmedabad'}
-                    showSaveButton={false}
-                    onChange={(selectedLoc) => {
-                      setCurrentFilters({ ...currentFilters, locality: selectedLoc });
-                    }}
+                  {/* Saved Office Destination Validation Status */}
+                  {user?.role_profile?.work_area ? (
+                    <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex justify-between items-center text-xs">
+                      <div>
+                        <span className="text-[10px] font-extrabold uppercase text-emerald-800 tracking-wider block">📍 Saved Destination Office</span>
+                        <span className="font-bold text-emerald-950 text-xs">{user.role_profile.work_area}</span>
+                      </div>
+                      <button
+                        onClick={() => setActiveTab('profile')}
+                        className="text-[11px] font-bold text-emerald-700 hover:underline"
+                      >
+                        Edit Office Location →
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="bg-amber-50 border border-amber-300 rounded-xl p-4 flex justify-between items-center text-xs text-amber-900">
+                      <div>
+                        <span className="font-extrabold block text-sm">⚠️ No Office Location Saved in Profile</span>
+                        <span className="text-xs text-amber-800">Please set your office location in your profile first to compute accurate commute matrices.</span>
+                      </div>
+                      <Button variant="primary" size="sm" onClick={() => setActiveTab('profile')}>
+                        Go to Profile Settings →
+                      </Button>
+                    </div>
+                  )}
+
+                  {/* Interactive Origin Location Selector */}
+                  <div className="pt-2">
+                    <InteractiveLocationPicker
+                      label="Select Starting Origin Location (Apartment / Neighborhood / Pin 📍)"
+                      value={currentFilters.locality || user?.role_profile?.preferred_localities?.[0] || 'Bodakdev, Ahmedabad'}
+                      showSaveButton={false}
+                      onChange={(selectedLoc) => {
+                        setCurrentFilters({ ...currentFilters, locality: selectedLoc });
+                      }}
+                    />
+                  </div>
+
+
+                  <Button
+                    variant="primary"
+                    size="md"
+                    onClick={fetchCommuteData}
+                    loading={commuteLoading}
+                    className="w-full font-bold shadow-md"
+                  >
+                    🚀 Compute Travel Matrix & Multi-Mode Insights
+                  </Button>
+                </Card>
+
+                {commuteLoading ? (
+                  <div className="py-12 text-center"><LoadingSpinner size="lg" message="Calculating Geoapify multi-mode commute matrix..." /></div>
+                ) : commuteError ? (
+                  <Card className="text-center py-6 text-xs text-warning bg-amber-50 border-amber-200">{commuteError}</Card>
+                ) : commuteData ? (
+                  <CommutePanel
+                    durationMinutes={commuteData.duration_minutes}
+                    distanceKm={commuteData.distance_km}
+                    mode={commuteData.mode || 'driving'}
+                    originLocality={commuteData.origin_locality || currentFilters.locality || 'Origin'}
+                    destOffice={commuteData.destination || user?.role_profile?.work_area || 'Office'}
                   />
-                </div>
-
-
-                <Button
-                  variant="primary"
-                  size="md"
-                  onClick={fetchCommuteData}
-                  loading={commuteLoading}
-                  className="w-full font-bold shadow-md"
-                >
-                  🚀 Compute Travel Matrix & Multi-Mode Insights
-                </Button>
-              </Card>
-
-              {commuteLoading ? (
-                <div className="py-12 text-center"><LoadingSpinner size="lg" message="Calculating Geoapify multi-mode commute matrix..." /></div>
-              ) : commuteError ? (
-                <Card className="text-center py-6 text-xs text-warning bg-amber-50 border-amber-200">{commuteError}</Card>
-              ) : commuteData ? (
-                <CommutePanel
-                  durationMinutes={commuteData.duration_minutes || 20}
-                  distanceKm={commuteData.distance_km || 7.5}
-                  mode={commuteData.mode || 'driving'}
-                  originLocality={commuteData.origin_locality || currentFilters.locality || 'Bodakdev'}
-                  destOffice={commuteData.destination || user?.role_profile?.work_area || 'Navrangpura'}
-                />
-              ) : null}
-            </div>
+                ) : null}
+              </div>
+            )
           )}
 
 

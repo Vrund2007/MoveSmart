@@ -5,6 +5,7 @@ from . import views
 urlpatterns = [
     path('listings', views.ListingsView.as_view(), name='listings'),
     path('listings/my', views.MyListingsView.as_view(), name='my-listings'),
+    path('listings/upload-image', views.ImageUploadView.as_view(), name='listing-upload-image'),
     path('listings/<str:listing_id>', views.ListingDetailView.as_view(), name='listing-detail'),
     path('listings/<str:listing_id>/rent-prediction', views.RentPredictionView.as_view(), name='listing-rent-prediction'),
     path('listings/<str:listing_id>/trust-score', views.TrustScoreView.as_view(), name='listing-trust-score'),

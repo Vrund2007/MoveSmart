@@ -9,23 +9,24 @@ from rest_framework import serializers
 PUBLIC_ROLE_CHOICES = [
     'find_accommodation',
     'property_owner',
-    'broker',
     'company_hr',
 ]
 
 
 class RegisterSerializer(serializers.Serializer):
-    """Validates email + password + confirm_password for POST /api/auth/register."""
-    name = serializers.CharField(max_length=150, required=False, allow_blank=True)
+    """Validates email + password for POST /api/auth/register."""
+    name = serializers.CharField(max_length=150, required=False, allow_blank=True, allow_null=True, default="")
     email = serializers.EmailField()
-    password = serializers.CharField(min_length=8, write_only=True)
-    confirm_password = serializers.CharField(min_length=8, write_only=True)
+    password = serializers.CharField(min_length=6, write_only=True)
+    confirm_password = serializers.CharField(min_length=6, required=False, allow_blank=True, allow_null=True, write_only=True)
+    confirmPassword = serializers.CharField(min_length=6, required=False, allow_blank=True, allow_null=True, write_only=True)
 
     def validate_email(self, value):
         return value.lower().strip()
 
     def validate(self, data):
-        if data['password'] != data['confirm_password']:
+        confirm = data.get('confirm_password') or data.get('confirmPassword')
+        if confirm and data['password'] != confirm:
             raise serializers.ValidationError({"confirm_password": "Passwords do not match."})
         return data
 
@@ -96,6 +97,5 @@ class CompanyHRProfileSerializer(serializers.Serializer):
 PROFILE_SERIALIZER_MAP = {
     'find_accommodation': FindAccommodationProfileSerializer,
     'property_owner':     PropertyOwnerProfileSerializer,
-    'broker':             BrokerProfileSerializer,
     'company_hr':         CompanyHRProfileSerializer,
 }

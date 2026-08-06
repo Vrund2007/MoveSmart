@@ -39,13 +39,17 @@ export default function Landing() {
         effects: true,
         smoothTouch: 0.1,
       });
+      window.gsapSmoother = smoother;
     } catch (err) {
       // eslint-disable-next-line no-console
       console.warn('[ScrollSmoother] Initialization fallback:', err);
     }
 
     return () => {
-      if (smoother) smoother.kill();
+      if (smoother) {
+        smoother.kill();
+        window.gsapSmoother = null;
+      }
     };
   }, []);
 

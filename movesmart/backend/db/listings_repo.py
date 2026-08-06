@@ -131,28 +131,68 @@ def get_listing_by_id(listing_id: str, include_non_approved: bool = False) -> Op
     return _serialize(doc) if doc else None
 
 
+def increment_view_count(listing_id: str) -> None:
+    """Atomically increment the view_count of a listing by 1 every time it is viewed."""
+    db = get_db()
+    try:
+        oid = ObjectId(listing_id)
+        db["listings"].update_one({"_id": oid}, {"$inc": {"view_count": 1}})
+    except Exception:
+        pass
+
+
+def increment_enquiry_count(listing_id: str) -> None:
+    """Atomically increment the enquiry_count of a listing by 1."""
+    db = get_db()
+    try:
+        oid = ObjectId(listing_id)
+        db["listings"].update_one({"_id": oid}, {"$inc": {"enquiry_count": 1}})
+    except Exception:
+        pass
+
+
+import random
+
 def create_listing(listing_data: dict) -> str:
-    """Create a new listing document.
+    """Create a new listing document matching exact database schema.
     Returns the new listing's _id as a string.
     """
     db = get_db()
     now = datetime.now(timezone.utc)
     doc = dict(listing_data)
+    
+    doc.setdefault("spid", str(random.randint(10000000, 99999999)))
     doc["created_at"] = now
     doc["updated_at"] = now
-    doc["status"] = "pending_review"  # Server-enforced (FR-3)
+    doc.setdefault("status", "pending_review")  # Server-enforced (FR-3)
     doc.setdefault("rejection_reason", None)
-    doc.setdefault("source", "platform")
+    doc.setdefault("source", "landlord_portal")
+    doc.setdefault("source_detail", "landlord_form")
     doc.setdefault("view_count", 0)
     doc.setdefault("enquiry_count", 0)
-    doc.setdefault("verification_flags", {})
-    doc.setdefault("predicted_price_range", {})
+    doc.setdefault("owner_id", None)
+    doc.setdefault("submitted_by_broker_id", None)
+    doc.setdefault("predicted_price_range", None)
+    doc.setdefault("verification_flags", {
+        "is_suspicious": False,
+        "checked_at": now
+    })
     doc.setdefault("images", [])
     doc.setdefault("amenities", [])
-    doc.setdefault("coordinates", [72.5714, 23.0225])
+    doc.setdefault("area_sqft", 0.0)
+    doc.setdefault("furnishing", "Furnished")
+    
+    # Ensure coordinates format is GeoJSON Point
+    raw_coords = doc.get("coordinates")
+    if not isinstance(raw_coords, dict) or raw_coords.get("type") != "Point":
+        if isinstance(raw_coords, (list, tuple)) and len(raw_coords) == 2:
+            doc["coordinates"] = {"type": "Point", "coordinates": [float(raw_coords[0]), float(raw_coords[1])]}
+        else:
+            doc["coordinates"] = {"type": "Point", "coordinates": [72.539248, 23.020143]}
     
     result = db["listings"].insert_one(doc)
     return str(result.inserted_id)
+
 
 
 def update_listing(listing_id: str, update_data: dict) -> Dict[str, Any]:

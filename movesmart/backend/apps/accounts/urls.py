@@ -9,4 +9,9 @@ urlpatterns = [
     path('logout',   views.LogoutView.as_view(),   name='auth-logout'),
     path('role',     views.SetRoleView.as_view(),   name='auth-set-role'),
     path('profile',  views.ProfileView.as_view(),   name='profile'),
+    path('razorpay/create-order', views.RazorpayCreateOrderView.as_view(), name='razorpay-create-order'),
+    path('razorpay/verify-payment', views.RazorpayVerifyPaymentView.as_view(), name='razorpay-verify-payment'),
+    path('google', views.GoogleAuthView.as_view(), name='auth-google'),
+    path('change-password', views.ChangePasswordView.as_view(), name='auth-change-password'),
+    path('delete-account', views.DeleteAccountView.as_view(), name='auth-delete-account'),
 ]

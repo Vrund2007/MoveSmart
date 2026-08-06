@@ -1,95 +1,113 @@
 // src/pages/OwnerDashboard.jsx — Phase 10: Complete Property Owner SaaS Hub
-// 10-tab dashboard: Hub, Properties, Add/Edit Wizard, Analytics, Visit Requests,
-//                   Inbox, Payments, Reviews, Documents, Profile
 import React, { useState, useEffect, useContext, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import {
   getMyListings, createListing, updateListing, deleteListing
 } from '../api/listings';
-import {
-  getPayments, createPayment, updatePayment, deletePayment
-} from '../api/payments';
-import { getOwnerReviews, replyToReview } from '../api/reviews';
-import { getDocuments, uploadDocument, deleteDocument } from '../api/documents';
 import { getOwnerVisits, updateOwnerVisitStatus } from '../api/ownerVisits';
 import StatusBadge from '../components/listings/StatusBadge';
-import ListingForm from '../components/owner/ListingForm';
+import PropertyImageUploader, { extractPublicIdFromUrl } from '../components/owner/PropertyImageUploader';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
+import Input from '../components/common/Input';
 import LoadingSpinner from '../components/common/LoadingSpinner';
-
-// ──────────────────────────────────────────────────────────────────────
-// HELPERS & SUB-COMPONENTS
-// ──────────────────────────────────────────────────────────────────────
+import OwnerAnalytics from '../components/owner/OwnerAnalytics';
+import Inbox from './Inbox';
+import { getUserDisplayName } from '../utils/user';
+import { changePassword, deleteAccount } from '../api/auth';
+import {
+  HubIcon,
+  BrowseIcon,
+  MessageIcon,
+  CalendarIcon,
+  UserIcon,
+  CostIcon,
+  MenuIcon,
+  XIcon,
+  CheckCircleIcon,
+  AlertTriangleIcon,
+  TrashIcon,
+  MapPinIcon,
+  ArrowLeftIcon,
+} from '../components/common/Icons';
 
 const SIDEBAR_TABS = [
-  { id: 'hub',       icon: '🏢', label: 'Dashboard Hub'     },
-  { id: 'properties',icon: '🏠', label: 'My Properties'     },
-  { id: 'wizard',    icon: '➕', label: 'Add Property'      },
-  { id: 'analytics', icon: '📊', label: 'Analytics'         },
-  { id: 'visits',    icon: '📅', label: 'Visit Requests'    },
-  { id: 'inbox',     icon: '💬', label: 'Owner Inbox'       },
-  { id: 'payments',  icon: '💰', label: 'Payments & Income' },
-  { id: 'reviews',   icon: '⭐', label: 'Tenant Reviews'    },
-  { id: 'documents', icon: '📄', label: 'Documents'         },
-  { id: 'profile',   icon: '👤', label: 'Account & Profile' },
+  { id: 'hub', icon: HubIcon, label: 'Dashboard Hub' },
+  { id: 'properties', icon: BrowseIcon, label: 'My Properties' },
+  { id: 'wizard', icon: CheckCircleIcon, label: 'Add Property' },
+  { id: 'analytics', icon: CostIcon, label: 'Analytics' },
+  { id: 'visits', icon: CalendarIcon, label: 'Visit Requests' },
+  { id: 'inbox', icon: MessageIcon, label: 'Owner Inbox' },
+  { id: 'profile', icon: UserIcon, label: 'Account & Profile' },
 ];
 
-function StatCard({ value, label, icon, color = 'text-primary', trend }) {
+function StatCard({ value, label, icon: IconComponent, color = 'text-primary', trend }) {
   return (
-    <Card className="bg-white border border-border py-5 px-4 flex flex-col gap-1">
-      <div className="flex justify-between items-center">
-        <span className="text-2xl">{icon}</span>
+    <Card className="bg-white border border-border rounded-2xl p-5 flex flex-col justify-between shadow-xs hover:shadow-md transition-all">
+      <div className="flex justify-between items-center mb-2">
+        <div className="w-10 h-10 rounded-xl bg-surface border border-border flex items-center justify-center text-primary">
+          <IconComponent className="w-5 h-5" />
+        </div>
         {trend !== undefined && (
-          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
-            trend >= 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-500'
+          <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
+            trend >= 0 ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' : 'bg-rose-50 text-rose-500 border border-rose-200'
           }`}>
-            {trend >= 0 ? '▲' : '▼'} {Math.abs(trend)}
+            {trend >= 0 ? '▲' : '▼'} {Math.abs(trend)}%
           </span>
         )}
       </div>
-      <div className={`text-3xl font-extrabold ${color} tabular-nums mt-1`}>{value}</div>
-      <div className="text-[10px] text-text-secondary font-bold">{label}</div>
+      <div>
+        <div className={`text-2xl sm:text-3xl font-black ${color} tabular-nums leading-tight`}>{value}</div>
+        <div className="text-xs text-text-secondary font-bold mt-1">{label}</div>
+      </div>
     </Card>
   );
 }
 
 function VisitStatusBadge({ status }) {
   const map = {
-    requested: 'bg-amber-100 text-amber-700',
-    confirmed: 'bg-emerald-100 text-emerald-700',
-    completed: 'bg-blue-100 text-blue-700',
-    cancelled: 'bg-rose-100 text-rose-600',
+    requested: 'bg-amber-100 text-amber-800 border-amber-200',
+    confirmed: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+    completed: 'bg-blue-100 text-blue-800 border-blue-200',
+    cancelled: 'bg-rose-100 text-rose-700 border-rose-200',
   };
   return (
-    <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded-full uppercase ${map[status] || 'bg-surface text-text-secondary'}`}>
+    <span className={`text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider border ${map[status] || 'bg-surface text-text-secondary border-border'}`}>
       {status}
     </span>
   );
 }
 
-// ──────────────────────────────────────────────────────────────────────
-// WIZARD STEPS
-// ──────────────────────────────────────────────────────────────────────
-const WIZARD_STEPS = ['Basic Info', 'Location', 'Details', 'Pricing', 'Preview'];
+const WIZARD_STEPS = ['Basic Info', 'Location & Pin', 'Details & Amenities', 'Cloudinary Photos', 'Pricing', 'Preview & Submit'];
 
 function PropertyWizard({ listings, onComplete, initialValues = null }) {
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
-    title: '', deal_type: 'rent', bhk: 1,
-    locality: '', area_sqft: '', floor: '',
-    furnishing: 'Unfurnished', amenities: [],
+    title: '', deal_type: 'rent', bhk: 2, bathrooms: 2,
+    locality: '', address: '', area_sqft: '', floor: '', total_floors: '',
+    furnishing: 'Furnished', amenities: [], images: [], coordinates: null,
     price: '', deposit: '', available_from: '',
     description: '', ...(initialValues || {})
   });
 
+  const [pendingImageItems, setPendingImageItems] = useState(() =>
+    ((initialValues?.images) || []).map((url, idx) => ({
+      id: `existing_${idx}`,
+      file: null,
+      previewUrl: url,
+      isUploaded: true,
+      url: url,
+    }))
+  );
+
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   const amenityOptions = [
-    'Lift', 'Parking', 'Gym', 'Pool', 'Power Backup',
-    'Security', 'Water Supply', 'Internet', 'Garden', 'Club House'
+    'Lift', 'Car Parking', 'Gym', 'Swimming Pool', 'Power Backup',
+    '24x7 Security', 'Gas Pipeline', 'Garden / Park', 'Clubhouse', 'EV Charging',
+    'Water Supply 24x7', 'Children Play Area'
   ];
   const toggleAmenity = (a) => {
     const cur = Array.isArray(form.amenities) ? form.amenities : [];
@@ -101,32 +119,38 @@ function PropertyWizard({ listings, onComplete, initialValues = null }) {
     try {
       await onComplete({
         ...form,
-        bhk: Number(form.bhk),
-        price: Number(form.price),
-        area_sqft: Number(form.area_sqft) || undefined,
-        deposit: Number(form.deposit) || undefined,
+        bhk: Number(form.bhk) || 2,
+        bathrooms: Number(form.bathrooms) || 2,
+        price: Number(form.price) || 0,
+        deposit: Number(form.deposit) || 0,
+        area_sqft: Number(form.area_sqft) || 0,
+        floor: Number(form.floor) || 1,
+        total_floors: Number(form.total_floors) || 5,
+        amenities: Array.isArray(form.amenities) ? form.amenities : [],
+        images: Array.isArray(form.images) ? form.images : [],
+        status: 'pending_review'
       });
     } finally { setSaving(false); }
   };
 
-  const inputCls = 'w-full bg-surface border border-border rounded-lg p-2.5 text-xs text-text-primary outline-none focus:border-primary transition-colors';
+  const inputCls = 'w-full bg-surface border border-border rounded-xl p-3 text-xs text-text-primary outline-none focus:border-primary transition-colors font-medium';
   const labelCls = 'text-xs font-bold text-text-primary mb-1 block';
 
   return (
-    <div className="max-w-2xl mx-auto">
+    <div className="max-w-3xl mx-auto font-sans">
       {/* Progress Bar */}
-      <div className="mb-8">
-        <div className="flex justify-between mb-2">
+      <div className="mb-8 bg-white p-4 rounded-2xl border border-border shadow-xs">
+        <div className="flex justify-between mb-3 overflow-x-auto gap-2">
           {WIZARD_STEPS.map((s, i) => (
             <button key={s} onClick={() => i < step && setStep(i)}
-              className={`text-[9px] font-extrabold uppercase tracking-wide transition-colors ${
-                i === step ? 'text-primary' : i < step ? 'text-emerald-600 cursor-pointer' : 'text-text-secondary'
+              className={`text-[9px] font-black uppercase tracking-wider transition-colors whitespace-nowrap px-2.5 py-1 rounded-lg ${
+                i === step ? 'bg-primary text-white' : i < step ? 'bg-emerald-50 text-emerald-700 cursor-pointer' : 'text-text-secondary'
               }`}>
               {i < step ? '✓ ' : ''}{s}
             </button>
           ))}
         </div>
-        <div className="h-1.5 bg-surface border border-border rounded-full overflow-hidden">
+        <div className="h-2 bg-surface border border-border rounded-full overflow-hidden">
           <div
             className="h-full bg-gradient-to-r from-primary to-teal-500 rounded-full transition-all duration-500"
             style={{ width: `${((step + 1) / WIZARD_STEPS.length) * 100}%` }}
@@ -134,83 +158,92 @@ function PropertyWizard({ listings, onComplete, initialValues = null }) {
         </div>
       </div>
 
-      <Card className="bg-white border border-border space-y-5">
+      <Card className="bg-white border border-border rounded-2xl p-6 space-y-6 shadow-xs">
         {/* Step 0: Basic Info */}
         {step === 0 && (
-          <>
-            <h3 className="font-bold text-base text-text-primary">Basic Information</h3>
+          <div className="space-y-4">
+            <h3 className="font-extrabold text-base text-text-primary">Step 1: Basic Property Information</h3>
             <div>
               <label className={labelCls}>Property Title *</label>
-              <input className={inputCls} placeholder="e.g. Spacious 2 BHK in Vastrapur" value={form.title} onChange={e => set('title', e.target.value)} />
+              <input className={inputCls} placeholder="e.g. Luxurious 3 BHK Furnished Apartment in Bodakdev" value={form.title} onChange={e => set('title', e.target.value)} />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <label className={labelCls}>Deal Type *</label>
                 <select className={inputCls} value={form.deal_type} onChange={e => set('deal_type', e.target.value)}>
                   <option value="rent">Rent</option>
-                  <option value="sale">Sale</option>
+                  <option value="buy">Sale / Buy</option>
                 </select>
               </div>
               <div>
-                <label className={labelCls}>BHK *</label>
+                <label className={labelCls}>BHK Size *</label>
                 <select className={inputCls} value={form.bhk} onChange={e => set('bhk', e.target.value)}>
                   {[1,2,3,4,5].map(n => <option key={n} value={n}>{n} BHK</option>)}
                 </select>
               </div>
+              <div>
+                <label className={labelCls}>Bathrooms</label>
+                <select className={inputCls} value={form.bathrooms} onChange={e => set('bathrooms', e.target.value)}>
+                  {[1,2,3,4,5].map(n => <option key={n} value={n}>{n} Bathrooms</option>)}
+                </select>
+              </div>
             </div>
             <div>
-              <label className={labelCls}>Description</label>
-              <textarea className={inputCls} rows={3} placeholder="Describe your property..." value={form.description} onChange={e => set('description', e.target.value)} />
+              <label className={labelCls}>Detailed Property Description</label>
+              <textarea className={inputCls} rows={4} placeholder="Highlight key features, society vibe, proximity to metro/schools, and tenant preferences..." value={form.description} onChange={e => set('description', e.target.value)} />
             </div>
-          </>
+          </div>
         )}
 
-        {/* Step 1: Location */}
+        {/* Step 1: Locality & Address */}
         {step === 1 && (
-          <>
-            <h3 className="font-bold text-base text-text-primary">Location Details</h3>
+          <div className="space-y-4">
+            <h3 className="font-extrabold text-base text-text-primary">Step 2: Locality & Property Address</h3>
             <div>
-              <label className={labelCls}>Locality *</label>
-              <input className={inputCls} placeholder="e.g. Vastrapur" value={form.locality} onChange={e => set('locality', e.target.value)} />
+              <label className={labelCls}>Locality / Neighborhood Name *</label>
+              <input className={inputCls} placeholder="e.g. Bodakdev, Ahmedabad" value={form.locality} onChange={e => set('locality', e.target.value)} />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className={labelCls}>Floor Number</label>
-                <input type="number" className={inputCls} placeholder="e.g. 3" value={form.floor} onChange={e => set('floor', e.target.value)} />
-              </div>
-              <div>
-                <label className={labelCls}>Area (sq ft)</label>
-                <input type="number" className={inputCls} placeholder="e.g. 900" value={form.area_sqft} onChange={e => set('area_sqft', e.target.value)} />
-              </div>
+            <div>
+              <label className={labelCls}>Full Property Address *</label>
+              <textarea className={inputCls} rows={3} placeholder="e.g. A-502, Orchid Elegance, Opposite Iskcon Temple, SG Highway, Bodakdev, Ahmedabad - 380054" value={form.address} onChange={e => set('address', e.target.value)} />
             </div>
-          </>
+          </div>
         )}
 
         {/* Step 2: Details & Amenities */}
         {step === 2 && (
-          <>
-            <h3 className="font-bold text-base text-text-primary">Property Details</h3>
-            <div>
-              <label className={labelCls}>Furnishing Status</label>
-              <div className="flex flex-wrap gap-2">
-                {['Unfurnished', 'Semi-Furnished', 'Fully-Furnished'].map(f => (
-                  <button key={f} type="button" onClick={() => set('furnishing', f)}
-                    className={`px-3 py-1.5 text-xs font-bold rounded-full border transition-colors ${
-                      form.furnishing === f ? 'bg-primary text-white border-primary' : 'bg-surface border-border text-text-primary hover:border-primary'
-                    }`}>
-                    {f}
-                  </button>
-                ))}
+          <div className="space-y-4">
+            <h3 className="font-extrabold text-base text-text-primary">Step 3: Property Details & Amenities</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <label className={labelCls}>Furnishing Status</label>
+                <select className={inputCls} value={form.furnishing} onChange={e => set('furnishing', e.target.value)}>
+                  <option value="Unfurnished">Unfurnished</option>
+                  <option value="Semi-Furnished">Semi-Furnished</option>
+                  <option value="Furnished">Fully Furnished</option>
+                </select>
+              </div>
+              <div>
+                <label className={labelCls}>Super Area (sq. ft)</label>
+                <input type="number" className={inputCls} placeholder="e.g. 1450" value={form.area_sqft} onChange={e => set('area_sqft', e.target.value)} />
+              </div>
+              <div>
+                <label className={labelCls}>Floor / Total Floors</label>
+                <div className="flex gap-2">
+                  <input type="number" className={inputCls} placeholder="Floor" value={form.floor} onChange={e => set('floor', e.target.value)} />
+                  <input type="number" className={inputCls} placeholder="Total" value={form.total_floors} onChange={e => set('total_floors', e.target.value)} />
+                </div>
               </div>
             </div>
+
             <div>
-              <label className={labelCls}>Amenities</label>
-              <div className="flex flex-wrap gap-2">
+              <label className={labelCls}>Select Available Amenities</label>
+              <div className="flex flex-wrap gap-2 pt-1">
                 {amenityOptions.map(a => (
                   <button key={a} type="button" onClick={() => toggleAmenity(a)}
-                    className={`px-3 py-1 text-[10px] font-bold rounded-full border transition-colors ${
+                    className={`px-3 py-1.5 text-xs font-bold rounded-xl border transition-all ${
                       (Array.isArray(form.amenities) && form.amenities.includes(a))
-                        ? 'bg-teal-500 text-white border-teal-500'
+                        ? 'bg-[#00ADB5] text-white border-primary shadow-xs'
                         : 'bg-surface border-border text-text-primary hover:border-primary'
                     }`}>
                     {a}
@@ -218,67 +251,133 @@ function PropertyWizard({ listings, onComplete, initialValues = null }) {
                 ))}
               </div>
             </div>
-          </>
+          </div>
         )}
 
-        {/* Step 3: Pricing */}
+        {/* Step 3: Cloudinary Photos */}
         {step === 3 && (
-          <>
-            <h3 className="font-bold text-base text-text-primary">Pricing & Availability</h3>
-            <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-4">
+            <div className="flex justify-between items-center pb-2 border-b border-border">
               <div>
-                <label className={labelCls}>Monthly Rent / Price (₹) *</label>
-                <input type="number" className={inputCls} placeholder="e.g. 18000" value={form.price} onChange={e => set('price', e.target.value)} />
+                <h3 className="font-extrabold text-base text-text-primary">Step 4: Property Photos & Cloudinary Synchronization</h3>
+                <p className="text-xs text-text-secondary font-medium">Drag & drop photos or select from computer. Photos are uploaded to Cloudinary and stored in MongoDB.</p>
+              </div>
+            </div>
+
+            <PropertyImageUploader
+              pendingItems={pendingImageItems}
+              onPendingItemsChange={(items) => {
+                setPendingImageItems(items);
+                const cloudUrls = items.filter(it => it.isUploaded && it.url).map(it => it.url);
+                set('images', cloudUrls);
+              }}
+            />
+          </div>
+        )}
+
+        {/* Step 4: Pricing */}
+        {step === 4 && (
+          <div className="space-y-4">
+            <h3 className="font-extrabold text-base text-text-primary">Step 5: Pricing & Availability</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className={labelCls}>Monthly Rent / Sale Price (₹) *</label>
+                <input type="number" className={inputCls} placeholder="e.g. 24000" value={form.price} onChange={e => set('price', e.target.value)} />
               </div>
               <div>
                 <label className={labelCls}>Security Deposit (₹)</label>
-                <input type="number" className={inputCls} placeholder="e.g. 50000" value={form.deposit} onChange={e => set('deposit', e.target.value)} />
+                <input type="number" className={inputCls} placeholder="e.g. 48000" value={form.deposit} onChange={e => set('deposit', e.target.value)} />
               </div>
             </div>
             <div>
-              <label className={labelCls}>Available From</label>
+              <label className={labelCls}>Available From Date</label>
               <input type="date" className={inputCls} value={form.available_from} onChange={e => set('available_from', e.target.value)} />
             </div>
-          </>
+          </div>
         )}
 
-        {/* Step 4: Preview */}
-        {step === 4 && (
-          <>
-            <h3 className="font-bold text-base text-text-primary">Review & Submit</h3>
-            <div className="bg-surface border border-border rounded-lg p-4 space-y-2 text-xs">
+        {/* Step 5: Preview & Submit */}
+        {step === 5 && (
+          <div className="space-y-4">
+            <h3 className="font-extrabold text-base text-text-primary">Step 6: Review & Submit to Admin Queue</h3>
+            <div className="bg-surface border border-border rounded-xl p-4 space-y-2 text-xs">
               {[
-                ['Title', form.title], ['Deal Type', form.deal_type], ['BHK', `${form.bhk} BHK`],
-                ['Locality', form.locality], ['Area', form.area_sqft ? `${form.area_sqft} sq ft` : '—'],
-                ['Furnishing', form.furnishing], ['Price', form.price ? `₹${Number(form.price).toLocaleString()}` : '—'],
-                ['Deposit', form.deposit ? `₹${Number(form.deposit).toLocaleString()}` : '—'],
-                ['Available From', form.available_from || '—'],
+                ['Property Title', form.title || '—'],
+                ['Deal Type', form.deal_type.toUpperCase()],
+                ['BHK & Bathrooms', `${form.bhk} BHK • ${form.bathrooms || 2} Baths`],
+                ['Locality & Address', `${form.locality || '—'} (${form.address || 'Address provided'})`],
+                ['Super Area', form.area_sqft ? `${form.area_sqft} sq. ft` : '—'],
+                ['Floor Info', form.floor ? `Floor ${form.floor} of ${form.total_floors || '—'}` : '—'],
+                ['Furnishing Status', form.furnishing],
+                ['Monthly Rent / Price', form.price ? `₹${Number(form.price).toLocaleString('en-IN')}` : '—'],
+                ['Security Deposit', form.deposit ? `₹${Number(form.deposit).toLocaleString('en-IN')}` : '—'],
+                ['Available From', form.available_from || 'Immediate'],
+                ['Cloudinary Photos', Array.isArray(form.images) ? `${form.images.length} photos synced` : '0 photos'],
                 ['Amenities', Array.isArray(form.amenities) && form.amenities.length ? form.amenities.join(', ') : '—'],
               ].map(([k, v]) => (
-                <div key={k} className="flex justify-between gap-4">
+                <div key={k} className="flex justify-between gap-4 py-0.5">
                   <span className="text-text-secondary font-semibold">{k}</span>
                   <span className="font-bold text-text-primary text-right">{v}</span>
                 </div>
               ))}
             </div>
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800 font-medium">
-              ⚠️ After submission, your listing will be sent for Admin review before it is published on MoveSmart.
+
+            {/* Photos Preview */}
+            {pendingImageItems && pendingImageItems.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-text-primary block">
+                    Property Photos ({pendingImageItems.length})
+                  </span>
+                  {pendingImageItems.some(it => !it.isUploaded) && (
+                    <span className="text-[10px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-full">
+                      Some photos not yet synced to Cloudinary
+                    </span>
+                  )}
+                </div>
+                <div className="flex gap-3 overflow-x-auto pb-2">
+                  {pendingImageItems.map((item, idx) => {
+                    const displayPublicId = item.publicId || (item.url ? extractPublicIdFromUrl(item.url) : null);
+                    return (
+                      <div key={item.id} className="relative flex-shrink-0 w-28 rounded-xl overflow-hidden border shadow-xs bg-slate-900 flex flex-col">
+                        <img
+                          src={item.previewUrl || item.url}
+                          alt={`Property view ${idx + 1}`}
+                          className={`w-full h-16 object-cover ${
+                            item.isUploaded ? 'border-b border-emerald-400' : 'border-b border-amber-400'
+                          }`}
+                        />
+                        <div className={`p-1 text-white text-[8px] font-bold text-center truncate ${
+                          item.isUploaded ? 'bg-emerald-950/90 text-emerald-300' : 'bg-amber-950/90 text-amber-300'
+                        }`} title={displayPublicId || 'Local'}>
+                          {item.isUploaded ? `ID: ${displayPublicId}` : 'Local'}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3.5 text-xs text-emerald-800 font-medium flex items-center gap-2">
+              <CheckCircleIcon className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+              <span>After clicking <b>Submit Listing</b>, your property will be saved to MongoDB with status <b>"Pending Approval"</b>. Once approved by Admin, it will be published live!</span>
             </div>
-          </>
+          </div>
         )}
 
-        {/* Navigation */}
+        {/* Navigation Controls */}
         <div className="flex justify-between pt-4 border-t border-border">
-          <Button variant="secondary" size="sm" onClick={() => setStep(s => s - 1)} disabled={step === 0}>
+          <Button variant="secondary" size="sm" onClick={() => setStep(s => s - 1)} disabled={step === 0} className="font-bold text-xs rounded-xl">
             ← Back
           </Button>
           {step < WIZARD_STEPS.length - 1 ? (
-            <Button variant="primary" size="sm" onClick={() => setStep(s => s + 1)}>
-              Next →
+            <Button variant="primary" size="sm" onClick={() => setStep(s => s + 1)} className="font-bold text-xs rounded-xl">
+              Next Step →
             </Button>
           ) : (
-            <Button variant="primary" size="sm" loading={saving} onClick={handleSubmit}>
-              Submit Listing
+            <Button variant="primary" size="sm" loading={saving} onClick={handleSubmit} className="font-bold text-xs rounded-xl">
+              Submit Property for Approval
             </Button>
           )}
         </div>
@@ -298,39 +397,93 @@ export default function OwnerDashboard() {
   const activeTab = searchParams.get('tab') || 'hub';
   const setTab = (t) => setSearchParams({ tab: t });
 
+  // Mobile Drawer State
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
+
   // Listings
-  const [listings, setListings]     = useState([]);
+  const [listings, setListings] = useState([]);
   const [listLoading, setListLoading] = useState(false);
   const [editingListing, setEditingListing] = useState(null);
   const [deletingListing, setDeletingListing] = useState(null);
+  const [previewListing, setPreviewListing] = useState(null);
+  const [selectedImageIdx, setSelectedImageIdx] = useState(0);
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchQ, setSearchQ] = useState('');
 
-  // Payments
-  const [paymentData, setPaymentData]   = useState({ payments: [], summary: {} });
-  const [payLoading, setPayLoading]     = useState(false);
-  const [showPayForm, setShowPayForm]   = useState(false);
-  const [editPayment, setEditPayment]   = useState(null);
-  const [payForm, setPayForm] = useState({
-    property_id: '', tenant_name: '', amount: '',
-    payment_date: '', payment_status: 'received',
-    payment_method: 'bank_transfer', notes: ''
-  });
-
-  // Reviews
-  const [reviewData, setReviewData]   = useState({ reviews: [], average_rating: 0 });
-  const [reviewLoading, setRevLoading] = useState(false);
-  const [replyText, setReplyText]     = useState({});
-
-  // Documents
-  const [documents, setDocuments]    = useState([]);
-  const [docLoading, setDocLoading]  = useState(false);
-  const [docForm, setDocForm]        = useState({ property_id: '', title: '', doc_type: 'other', file_url: '', notes: '' });
-  const [showDocForm, setShowDocForm] = useState(false);
-
   // Visits
-  const [visits, setVisits]           = useState([]);
+  const [visits, setVisits] = useState([]);
   const [visitLoading, setVisitLoading] = useState(false);
+
+  // Change Password state
+  const [passState, setPassState] = useState({ old_password: '', new_password: '', confirm_password: '' });
+  const [passLoading, setPassLoading] = useState(false);
+  const [passSuccess, setPassSuccess] = useState('');
+  const [passError, setPassError] = useState('');
+
+  // Delete Account state
+  const [deletePass, setDeletePass] = useState('');
+  const [deleteConfirmed, setDeleteConfirmed] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
+
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    setPassError('');
+    setPassSuccess('');
+
+    if (!passState.old_password || !passState.new_password || !passState.confirm_password) {
+      setPassError('Please fill in all password fields.');
+      return;
+    }
+    if (passState.new_password !== passState.confirm_password) {
+      setPassError('New password and confirm password do not match.');
+      return;
+    }
+    if (passState.new_password.length < 6) {
+      setPassError('New password must be at least 6 characters long.');
+      return;
+    }
+
+    setPassLoading(true);
+    try {
+      await changePassword({
+        old_password: passState.old_password,
+        new_password: passState.new_password,
+      });
+      setPassSuccess('Password updated successfully.');
+      setPassState({ old_password: '', new_password: '', confirm_password: '' });
+    } catch (err) {
+      setPassError(err.response?.data?.message || err.message || 'Failed to update password.');
+    } finally {
+      setPassLoading(false);
+    }
+  };
+
+  const handleDeleteAccount = async (e) => {
+    e.preventDefault();
+    setDeleteError('');
+
+    if (!deletePass) {
+      setDeleteError('Please enter your password to confirm account deletion.');
+      return;
+    }
+    if (!deleteConfirmed) {
+      setDeleteError('Please check the confirmation box to proceed.');
+      return;
+    }
+
+    setDeleteLoading(true);
+    try {
+      await deleteAccount({ password: deletePass });
+      alert('Your owner account has been permanently deleted.');
+      if (logout) logout();
+      navigate('/');
+    } catch (err) {
+      setDeleteError(err.response?.data?.message || err.message || 'Account deletion failed.');
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
 
   // Fetch all data
   const fetchListings = useCallback(async () => {
@@ -340,34 +493,6 @@ export default function OwnerDashboard() {
       setListings(Array.isArray(res.data || res) ? (res.data || res) : []);
     } catch { /* ignore */ }
     finally { setListLoading(false); }
-  }, []);
-
-  const fetchPayments = useCallback(async () => {
-    setPayLoading(true);
-    try {
-      const res = await getPayments();
-      setPaymentData(res.data || res || { payments: [], summary: {} });
-    } catch { /* ignore */ }
-    finally { setPayLoading(false); }
-  }, []);
-
-  const fetchReviews = useCallback(async () => {
-    setRevLoading(true);
-    try {
-      const res = await getOwnerReviews();
-      setReviewData(res.data || res || { reviews: [], average_rating: 0 });
-    } catch { /* ignore */ }
-    finally { setRevLoading(false); }
-  }, []);
-
-  const fetchDocuments = useCallback(async () => {
-    setDocLoading(true);
-    try {
-      const res = await getDocuments();
-      const data = res.data || res;
-      setDocuments(Array.isArray(data) ? data : []);
-    } catch { /* ignore */ }
-    finally { setDocLoading(false); }
   }, []);
 
   const fetchVisits = useCallback(async () => {
@@ -382,11 +507,8 @@ export default function OwnerDashboard() {
 
   useEffect(() => {
     fetchListings();
-    fetchPayments();
-    fetchReviews();
-    fetchDocuments();
     fetchVisits();
-  }, [fetchListings, fetchPayments, fetchReviews, fetchDocuments, fetchVisits]);
+  }, [fetchListings, fetchVisits]);
 
   // Derived stats
   const stats = {
@@ -395,12 +517,8 @@ export default function OwnerDashboard() {
     pending: listings.filter(l => l.status === 'pending_review').length,
     rejected: listings.filter(l => l.status === 'rejected').length,
     pendingVisits: visits.filter(v => v.status === 'requested').length,
-    totalRevenue: paymentData?.summary?.total_received || 0,
-    pendingPayments: paymentData?.summary?.pending || 0,
-    avgRating: reviewData?.average_rating || 0,
   };
 
-  // Listing helpers
   const handleWizardComplete = async (formData) => {
     try {
       if (editingListing) {
@@ -427,55 +545,6 @@ export default function OwnerDashboard() {
     }
   };
 
-  // Payment helpers
-  const handlePaymentSave = async () => {
-    try {
-      if (editPayment) {
-        await updatePayment(editPayment._id, payForm);
-        setEditPayment(null);
-      } else {
-        await createPayment({ ...payForm, amount: Number(payForm.amount) });
-      }
-      setShowPayForm(false);
-      setPayForm({ property_id: '', tenant_name: '', amount: '', payment_date: '', payment_status: 'received', payment_method: 'bank_transfer', notes: '' });
-      fetchPayments();
-    } catch (err) { alert(err.response?.data?.message || 'Failed to save payment.'); }
-  };
-
-  const handleDeletePayment = async (id) => {
-    if (!window.confirm('Delete this payment record?')) return;
-    try { await deletePayment(id); fetchPayments(); }
-    catch (err) { alert(err.response?.data?.message || 'Failed.'); }
-  };
-
-  // Review helpers
-  const handleReply = async (reviewId) => {
-    const text = replyText[reviewId];
-    if (!text?.trim()) return;
-    try {
-      await replyToReview(reviewId, text);
-      setReplyText(r => ({ ...r, [reviewId]: '' }));
-      fetchReviews();
-    } catch (err) { alert(err.response?.data?.message || 'Failed to reply.'); }
-  };
-
-  // Document helpers
-  const handleDocUpload = async () => {
-    try {
-      await uploadDocument(docForm);
-      setDocForm({ property_id: '', title: '', doc_type: 'other', file_url: '', notes: '' });
-      setShowDocForm(false);
-      fetchDocuments();
-    } catch (err) { alert(err.response?.data?.message || 'Failed to upload.'); }
-  };
-
-  const handleDeleteDoc = async (id) => {
-    if (!window.confirm('Remove this document?')) return;
-    try { await deleteDocument(id); fetchDocuments(); }
-    catch (err) { alert(err.response?.data?.message || 'Failed.'); }
-  };
-
-  // Visit helpers
   const handleVisitAction = async (visitId, action) => {
     try {
       await updateOwnerVisitStatus(visitId, action);
@@ -483,7 +552,6 @@ export default function OwnerDashboard() {
     } catch (err) { alert(err.response?.data?.message || 'Failed.'); }
   };
 
-  // Filter listings
   const filteredListings = listings.filter(l => {
     const matchesStatus = statusFilter === 'all' || l.status === statusFilter;
     const matchesSearch = !searchQ || l.title?.toLowerCase().includes(searchQ.toLowerCase()) ||
@@ -491,52 +559,156 @@ export default function OwnerDashboard() {
     return matchesStatus && matchesSearch;
   });
 
-  const inputCls = 'w-full bg-surface border border-border rounded-lg p-2.5 text-xs text-text-primary outline-none focus:border-primary transition-colors';
-  const labelCls = 'text-xs font-bold text-text-primary mb-1 block';
-
   return (
     <div className="flex h-screen bg-[#EEEEEE] font-sans text-[#222831] overflow-hidden">
-      {/* SIDEBAR */}
-      <aside className="w-64 bg-white border-r border-[#D9D9D9] flex flex-col justify-between flex-shrink-0 z-20 overflow-y-auto">
+      {/* Off-Canvas Mobile Navigation Drawer Overlay */}
+      {mobileDrawerOpen && (
+        <div
+          className="fixed inset-0 bg-black/60 z-40 md:hidden backdrop-blur-xs transition-opacity"
+          onClick={() => setMobileDrawerOpen(false)}
+        />
+      )}
+
+      {/* Off-Canvas Mobile Sidebar Drawer */}
+      <div
+        className={`fixed inset-y-0 left-0 z-50 w-80 max-w-[85vw] bg-white shadow-2xl transition-transform duration-300 transform ease-in-out md:hidden flex flex-col justify-between ${
+          mobileDrawerOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
+        <div className="flex-1 overflow-y-auto">
+          {/* Header */}
+          <div className="p-5 border-b border-border flex justify-between items-center bg-slate-900 text-white">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 rounded-full p-[2px] bg-gradient-to-tr from-[#00ADB5] via-teal-400 to-[#00ADB5] shadow-md flex-shrink-0">
+                <img src="/smart-Building.png" alt="MoveSmart" className="w-full h-full rounded-full object-cover bg-white" />
+              </div>
+              <div>
+                <span className="font-black text-lg tracking-tight text-white block leading-none">
+                  Move<span className="text-[#00ADB5]">Smart</span>
+                </span>
+                <span className="text-[9px] font-bold text-teal-400 uppercase tracking-wider">Owner Portal</span>
+              </div>
+            </div>
+            <button
+              onClick={() => setMobileDrawerOpen(false)}
+              className="p-1.5 rounded-xl text-gray-300 hover:text-white hover:bg-white/10 transition-colors"
+            >
+              <XIcon className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* User Info */}
+          {user && (
+            <div className="px-5 py-4 border-b border-border bg-surface flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#00ADB5] to-teal-600 flex items-center justify-center font-black text-white text-base flex-shrink-0 shadow-xs">
+                {getUserDisplayName(user)[0]?.toUpperCase() || 'O'}
+              </div>
+              <div className="overflow-hidden">
+                <p className="text-xs font-black text-text-primary truncate">Hello, {getUserDisplayName(user)}</p>
+                <p className="text-[10px] text-text-secondary font-medium truncate">{user.email}</p>
+                <span className="text-[10px] text-[#00ADB5] font-extrabold block mt-0.5">{listings.length} Properties • Owner Account</span>
+              </div>
+            </div>
+          )}
+
+          {/* Navigation Links */}
+          <nav className="p-3 space-y-1">
+            {SIDEBAR_TABS.map((tab) => {
+              const IconComp = tab.icon;
+              const isActive = activeTab === tab.id;
+              let badge = null;
+              if (tab.id === 'properties') badge = listings.length;
+              if (tab.id === 'visits') badge = stats.pendingVisits;
+
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => {
+                    setTab(tab.id);
+                    setMobileDrawerOpen(false);
+                  }}
+                  className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-bold transition-all ${
+                    isActive ? 'bg-[#00ADB5] text-white shadow-xs' : 'text-text-primary hover:bg-surface'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <IconComp className={`w-4 h-4 ${isActive ? 'text-white' : 'text-[#00ADB5]'}`} />
+                    <span>{tab.label}</span>
+                  </div>
+                  {badge > 0 && (
+                    <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded-full ${
+                      isActive ? 'bg-white/20 text-white' : 'bg-primary/10 text-primary'
+                    }`}>
+                      {badge}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </nav>
+        </div>
+
+        {/* Drawer Footer Logout Button */}
+        <div className="p-4 border-t border-border bg-white">
+          <button
+            onClick={() => {
+              logout();
+              navigate('/');
+            }}
+            className="w-full flex items-center justify-center space-x-2 py-2.5 rounded-xl text-xs font-extrabold text-rose-600 bg-rose-50 hover:bg-rose-600 hover:text-white border border-rose-200 transition-all"
+          >
+            <XIcon className="w-4 h-4" />
+            <span>Logout Account</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Desktop Sidebar */}
+      <aside className="hidden md:flex w-64 bg-white border-r border-[#D9D9D9] flex-col justify-between flex-shrink-0 z-20 overflow-y-auto">
         <div>
-          <div className="p-6 border-b border-[#D9D9D9] flex items-center space-x-3">
-            <span className="text-2xl">🏢</span>
+          <div className="p-5 border-b border-[#D9D9D9] flex items-center space-x-3">
+            <div className="w-10 h-10 rounded-full p-[2px] bg-gradient-to-tr from-[#00ADB5] via-[#222831] to-[#00ADB5] shadow-md flex-shrink-0">
+              <img src="/smart-Building.png" alt="MoveSmart" className="w-full h-full rounded-full object-cover bg-white" />
+            </div>
             <div>
-              <span className="font-extrabold text-xl tracking-tight text-[#222831]">MoveSmart</span>
-              <span className="block text-[9px] font-bold text-[#00ADB5] uppercase tracking-wider">Property Owner Panel</span>
+              <span className="font-black text-xl tracking-tight text-[#222831] block leading-none">
+                Move<span className="text-[#00ADB5]">Smart</span>
+              </span>
+              <span className="block text-[9px] font-bold text-[#00ADB5] uppercase tracking-wider mt-1">Property Owner Panel</span>
             </div>
           </div>
 
           {/* User Summary */}
           {user && (
             <div className="px-4 py-3 border-b border-[#D9D9D9] flex items-center gap-3">
-              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary to-teal-500 flex items-center justify-center font-bold text-white text-sm flex-shrink-0">
+              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#00ADB5] to-teal-600 flex items-center justify-center font-bold text-white text-sm flex-shrink-0">
                 {user.email?.[0]?.toUpperCase() || 'O'}
               </div>
               <div className="overflow-hidden">
                 <p className="text-xs font-bold text-text-primary truncate">{user.email}</p>
-                <p className="text-[9px] text-text-secondary">{listings.length} Properties</p>
+                <p className="text-[9px] text-[#00ADB5] font-bold">{listings.length} Properties</p>
               </div>
             </div>
           )}
 
-          <nav className="p-3 space-y-0.5">
+          <nav className="p-3 space-y-1">
             {SIDEBAR_TABS.map((tab) => {
+              const IconComp = tab.icon;
               const isActive = activeTab === tab.id;
               let badge = null;
               if (tab.id === 'properties') badge = listings.length;
               if (tab.id === 'visits') badge = stats.pendingVisits;
               return (
                 <button key={tab.id} onClick={() => setTab(tab.id)}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-bold transition-all ${
-                    isActive ? 'bg-[#00ADB5] text-white shadow-sm' : 'text-[#393E46] hover:bg-[#EEEEEE]'
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                    isActive ? 'bg-[#00ADB5] text-white shadow-xs' : 'text-[#393E46] hover:bg-[#EEEEEE]'
                   }`}>
                   <div className="flex items-center gap-2.5">
-                    <span className="text-sm">{tab.icon}</span>
+                    <IconComp className={`w-4 h-4 ${isActive ? 'text-white' : 'text-primary'}`} />
                     <span>{tab.label}</span>
                   </div>
                   {badge > 0 && (
-                    <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded-full ${
+                    <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded-full ${
                       isActive ? 'bg-white/30 text-white' : 'bg-primary/10 text-primary'
                     }`}>{badge}</span>
                   )}
@@ -548,66 +720,90 @@ export default function OwnerDashboard() {
 
         <div className="p-4 border-t border-[#D9D9D9]">
           <button onClick={() => { logout(); navigate('/'); }}
-            className="w-full flex items-center justify-center space-x-2 py-2 rounded-lg text-xs font-bold text-[#EF4444] hover:bg-[#EF4444]/10 transition-colors">
-            <span>🚪</span><span>Logout</span>
+            className="w-full flex items-center justify-center space-x-2 py-2.5 rounded-xl text-xs font-extrabold text-rose-600 bg-rose-50 hover:bg-rose-600 hover:text-white border border-rose-200 transition-all">
+            <XIcon className="w-4 h-4" />
+            <span>Logout</span>
           </button>
         </div>
       </aside>
 
-      {/* MAIN CONTENT */}
+      {/* MAIN CONTENT AREA */}
       <main className="flex-1 flex flex-col overflow-hidden">
-        <header className="bg-white border-b border-[#D9D9D9] h-16 flex items-center justify-between px-8 flex-shrink-0">
-          <h2 className="text-base font-bold text-[#222831]">
-            {SIDEBAR_TABS.find(t => t.id === activeTab)?.label || 'Dashboard'}
-          </h2>
-          <Button variant="primary" size="sm" onClick={() => setTab('wizard')}>+ Add Property</Button>
+        {/* Responsive Header Bar with Left Hamburger Menu */}
+        <header className="bg-white border-b border-[#D9D9D9] h-16 flex items-center justify-between px-4 sm:px-8 flex-shrink-0">
+          <div className="flex items-center gap-3">
+            {/* 3-Lines Far-Left Hamburger Button on Mobile */}
+            <button
+              onClick={() => setMobileDrawerOpen(true)}
+              className="md:hidden p-2 rounded-xl text-text-primary hover:bg-surface border border-border transition-colors flex items-center justify-center"
+              title="Open Navigation Menu"
+            >
+              <MenuIcon className="w-5 h-5 text-[#222831]" />
+            </button>
+
+            <h2 className="text-base font-extrabold text-[#222831] truncate">
+              {SIDEBAR_TABS.find(t => t.id === activeTab)?.label || 'Dashboard'}
+            </h2>
+          </div>
+
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => setTab('wizard')}
+            className="whitespace-nowrap flex-shrink-0 text-xs font-bold px-3.5 py-1.5 rounded-xl"
+          >
+            + Add Property
+          </Button>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-6 bg-[#EEEEEE]">
-
-          {/* ── HUB ──────────────────────────────────────────────────── */}
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-[#EEEEEE]">
+          {/* ── HUB TAB ──────────────────────────────────────────────── */}
           {activeTab === 'hub' && (
-            <div className="space-y-6 animate-fade-in">
+            <div className="space-y-6 animate-fade-in font-sans">
               {/* Welcome Banner */}
-              <div className="bg-gradient-to-r from-[#00ADB5] to-teal-600 rounded-xl p-6 text-white shadow-lg flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div className="bg-gradient-to-r from-[#00ADB5] to-teal-600 rounded-2xl p-6 text-white shadow-md flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
-                  <h3 className="text-xl font-extrabold">Welcome, {user?.email?.split('@')[0]} 👋</h3>
-                  <p className="text-sm opacity-90 mt-1">Your property management headquarters.</p>
+                  <h3 className="text-xl font-black">Welcome back, {user?.email?.split('@')[0]}</h3>
+                  <p className="text-xs opacity-90 mt-1 font-medium">Your Property Owner Management Headquarters</p>
                 </div>
-                <Button variant="secondary" size="sm" onClick={() => setTab('wizard')}
-                  className="bg-white text-primary font-bold border-0">
+                <button
+                  type="button"
+                  onClick={() => setTab('wizard')}
+                  className="bg-white text-[#222831] hover:bg-[#EEEEEE] font-black text-xs rounded-xl px-4 py-2.5 shadow-sm transition-all flex-shrink-0"
+                >
                   + Add New Property
-                </Button>
+                </button>
               </div>
 
               {/* Stats Grid */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <StatCard value={stats.total}         label="Total Properties"   icon="🏘️" color="text-primary" />
-                <StatCard value={stats.active}        label="Live / Approved"    icon="✅" color="text-emerald-600" />
-                <StatCard value={stats.pending}       label="Under Review"       icon="🔄" color="text-amber-600" />
-                <StatCard value={stats.rejected}      label="Rejected"           icon="❌" color="text-rose-500" />
-                <StatCard value={stats.pendingVisits} label="Pending Visits"     icon="📅" color="text-blue-600" />
-                <StatCard value={`₹${stats.totalRevenue.toLocaleString()}`} label="Total Revenue Logged" icon="💰" color="text-teal-600" />
-                <StatCard value={`₹${stats.pendingPayments.toLocaleString()}`} label="Pending Payments"  icon="⏳" color="text-orange-500" />
-                <StatCard value={stats.avgRating > 0 ? `${stats.avgRating} ★` : '—'} label="Avg Tenant Rating"  icon="⭐" color="text-yellow-500" />
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                <StatCard value={stats.total} label="Total Properties" icon={HubIcon} color="text-primary" />
+                <StatCard value={stats.active} label="Live / Approved" icon={CheckCircleIcon} color="text-emerald-600" />
+                <StatCard value={stats.pending} label="Under Review" icon={CalendarIcon} color="text-amber-600" />
+                <StatCard value={stats.rejected} label="Rejected" icon={AlertTriangleIcon} color="text-rose-500" />
+                <StatCard value={stats.pendingVisits} label="Pending Visits" icon={UserIcon} color="text-blue-600" />
               </div>
 
               {/* Quick Actions */}
               <div>
-                <h3 className="text-xs font-extrabold text-text-secondary uppercase tracking-wider mb-3">Quick Actions</h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <h3 className="text-xs font-black text-text-secondary uppercase tracking-wider mb-3">Quick Actions</h3>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                   {[
-                    { icon: '➕', label: 'Add Property', tab: 'wizard', color: 'bg-primary/10 text-primary' },
-                    { icon: '📅', label: 'Review Visits', tab: 'visits', color: 'bg-blue-100 text-blue-700' },
-                    { icon: '💰', label: 'Log Payment', tab: 'payments', color: 'bg-teal-100 text-teal-700' },
-                    { icon: '📊', label: 'View Analytics', tab: 'analytics', color: 'bg-purple-100 text-purple-700' },
-                  ].map(a => (
-                    <button key={a.tab} onClick={() => setTab(a.tab)}
-                      className="bg-white border border-border rounded-xl p-4 text-left hover:shadow-md hover:border-primary/40 transition-all group">
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl mb-2 ${a.color}`}>{a.icon}</div>
-                      <p className="text-xs font-bold text-text-primary group-hover:text-primary transition-colors">{a.label}</p>
-                    </button>
-                  ))}
+                    { icon: CheckCircleIcon, label: 'Add Property', tab: 'wizard', color: 'bg-primary/10 text-primary' },
+                    { icon: CalendarIcon, label: 'Review Visits', tab: 'visits', color: 'bg-blue-100 text-blue-700' },
+                    { icon: CostIcon, label: 'View Analytics', tab: 'analytics', color: 'bg-purple-100 text-purple-700' },
+                  ].map(a => {
+                    const ActIcon = a.icon;
+                    return (
+                      <button key={a.tab} onClick={() => setTab(a.tab)}
+                        className="bg-white border border-border rounded-2xl p-4 text-left hover:shadow-md hover:border-primary/40 transition-all group shadow-xs">
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl mb-2 ${a.color}`}>
+                          <ActIcon className="w-5 h-5" />
+                        </div>
+                        <p className="text-xs font-bold text-text-primary group-hover:text-primary transition-colors">{a.label}</p>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -615,48 +811,20 @@ export default function OwnerDashboard() {
               {listings.length > 0 && (
                 <div>
                   <div className="flex justify-between items-center mb-3">
-                    <h3 className="text-xs font-extrabold text-text-secondary uppercase tracking-wider">Recent Properties</h3>
+                    <h3 className="text-xs font-black text-text-secondary uppercase tracking-wider">Recent Properties</h3>
                     <button onClick={() => setTab('properties')} className="text-xs text-primary font-bold hover:underline">View all →</button>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {listings.slice(0, 3).map(l => (
-                      <Card key={l._id} className="bg-white border border-border space-y-2">
+                      <Card key={l._id} className="bg-white border border-border rounded-2xl p-4 space-y-2 shadow-xs">
                         <div className="flex justify-between items-center">
-                          <h4 className="text-xs font-bold text-text-primary truncate">{l.title}</h4>
+                          <h4 className="text-xs font-extrabold text-text-primary truncate">{l.title}</h4>
                           <StatusBadge status={l.status} />
                         </div>
-                        <p className="text-[10px] text-text-secondary">{l.bhk} BHK · {l.locality} · ₹{l.price?.toLocaleString()}/mo</p>
-                        <p className="text-[10px] text-text-secondary">👁 {l.view_count||0} views · ✉️ {l.enquiry_count||0} enquiries</p>
-                      </Card>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Pending Visit Requests */}
-              {visits.filter(v => v.status === 'requested').length > 0 && (
-                <div>
-                  <div className="flex justify-between items-center mb-3">
-                    <h3 className="text-xs font-extrabold text-text-secondary uppercase tracking-wider">Pending Visit Requests</h3>
-                    <button onClick={() => setTab('visits')} className="text-xs text-primary font-bold hover:underline">View all →</button>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {visits.filter(v => v.status === 'requested').slice(0, 3).map(v => (
-                      <Card key={v._id} className="bg-white border border-amber-200 space-y-2">
-                        <div className="flex justify-between items-center">
-                          <span className="text-xs font-bold text-text-primary truncate">{v.listing?.locality || 'Property'}</span>
-                          <VisitStatusBadge status={v.status} />
-                        </div>
-                        <p className="text-[10px] text-text-secondary">📅 {v.scheduled_date} · {v.time_slot}</p>
-                        <div className="flex gap-2 pt-1">
-                          <button onClick={() => handleVisitAction(v._id, 'confirmed')}
-                            className="flex-1 text-[9px] font-bold py-1 bg-emerald-500 text-white rounded-md hover:bg-emerald-600 transition-colors">
-                            Confirm
-                          </button>
-                          <button onClick={() => handleVisitAction(v._id, 'cancelled')}
-                            className="flex-1 text-[9px] font-bold py-1 bg-rose-500 text-white rounded-md hover:bg-rose-600 transition-colors">
-                            Decline
-                          </button>
+                        <p className="text-xs text-text-secondary font-medium">{l.bhk} BHK · {l.locality} · ₹{l.price?.toLocaleString()}/mo</p>
+                        <div className="flex gap-3 text-[10px] text-text-secondary font-semibold pt-1 border-t border-border/50">
+                          <span>{l.view_count||0} views</span>
+                          <span>{l.enquiry_count||0} enquiries</span>
                         </div>
                       </Card>
                     ))}
@@ -666,61 +834,73 @@ export default function OwnerDashboard() {
             </div>
           )}
 
-          {/* ── PROPERTIES ───────────────────────────────────────────── */}
+          {/* ── PROPERTIES TAB ────────────────────────────────────────── */}
           {activeTab === 'properties' && (
-            <div className="space-y-5 animate-fade-in">
+            <div className="space-y-5 animate-fade-in font-sans">
               {/* Toolbar */}
-              <div className="flex flex-col sm:flex-row gap-3 justify-between items-start sm:items-center">
+              <div className="flex flex-col sm:flex-row gap-3 justify-between items-start sm:items-center bg-white p-4 rounded-2xl border border-border shadow-xs">
                 <div className="flex gap-2 flex-wrap">
                   {['all', 'approved', 'pending_review', 'rejected'].map(s => (
                     <button key={s} onClick={() => setStatusFilter(s)}
-                      className={`px-3 py-1.5 text-[10px] font-bold rounded-full border transition-colors ${
-                        statusFilter === s ? 'bg-primary text-white border-primary' : 'bg-white border-border text-text-secondary hover:border-primary'
+                      className={`px-3 py-1.5 text-[10px] font-bold rounded-xl border transition-colors ${
+                        statusFilter === s ? 'bg-[#00ADB5] text-white border-primary shadow-xs' : 'bg-surface border-border text-text-secondary hover:border-primary'
                       }`}>
                       {s === 'all' ? 'All' : s === 'pending_review' ? 'Pending Review' : s.charAt(0).toUpperCase() + s.slice(1)} {s === 'all' ? `(${listings.length})` : `(${listings.filter(l => l.status === s).length})`}
                     </button>
                   ))}
                 </div>
-                <input type="text" placeholder="🔍 Search by title or locality..."
-                  className="bg-white border border-border rounded-lg px-3 py-2 text-xs text-text-primary outline-none focus:border-primary transition-colors w-full sm:w-60"
+                <input type="text" placeholder="Search by title or locality..."
+                  className="bg-surface border border-border rounded-xl px-3.5 py-2 text-xs text-text-primary outline-none focus:border-primary transition-colors w-full sm:w-64 font-medium"
                   value={searchQ} onChange={e => setSearchQ(e.target.value)} />
               </div>
 
               {listLoading ? (
                 <div className="py-16 text-center"><LoadingSpinner size="lg" message="Loading properties..." /></div>
               ) : filteredListings.length === 0 ? (
-                <Card className="text-center py-16 bg-white border border-border">
-                  <span className="text-5xl mb-4 block">🏢</span>
-                  <h3 className="font-bold text-lg text-text-primary mb-2">No Properties Found</h3>
-                  <p className="text-xs text-text-secondary mb-6">Add your first property to get started.</p>
-                  <Button variant="primary" onClick={() => setTab('wizard')}>+ Add Property</Button>
+                <Card className="text-center py-16 bg-white border border-border rounded-2xl">
+                  <div className="w-14 h-14 rounded-full bg-surface border border-border flex items-center justify-center mx-auto mb-3 text-primary">
+                    <BrowseIcon className="w-7 h-7" />
+                  </div>
+                  <h3 className="font-extrabold text-base text-text-primary mb-1">No Properties Found</h3>
+                  <p className="text-xs text-text-secondary mb-5">Add your first property to get started on MoveSmart.</p>
+                  <Button variant="primary" size="sm" onClick={() => setTab('wizard')} className="font-bold text-xs rounded-xl">
+                    + Add Property
+                  </Button>
                 </Card>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                   {filteredListings.map(l => (
-                    <Card key={l._id} className="bg-white border border-border flex flex-col gap-3">
-                      <div className="flex justify-between items-start gap-2">
-                        <h3 className="font-bold text-sm text-text-primary line-clamp-1">{l.title}</h3>
-                        <StatusBadge status={l.status} />
+                    <Card key={l._id} className="bg-white border border-border rounded-2xl p-4 flex flex-col justify-between gap-3 shadow-xs hover:shadow-lg transition-all">
+                      <div className="space-y-1.5">
+                        <div className="flex justify-between items-start gap-2">
+                          <h3 className="font-extrabold text-sm text-text-primary line-clamp-1">{l.title}</h3>
+                          <StatusBadge status={l.status} />
+                        </div>
+                        <p className="text-base font-black text-[#00ADB5]">
+                          ₹{l.price?.toLocaleString()} <span className="text-xs text-text-secondary font-semibold">/ mo ({l.deal_type})</span>
+                        </p>
+                        <p className="text-xs text-text-secondary font-medium">{l.bhk} BHK · {l.locality} {l.area_sqft ? `· ${l.area_sqft} sqft` : ''}</p>
                       </div>
-                      <p className="text-sm font-bold text-primary">₹{l.price?.toLocaleString()} <span className="text-xs text-text-secondary font-normal">/ mo ({l.deal_type})</span></p>
-                      <p className="text-xs text-text-secondary">{l.bhk} BHK · {l.locality} {l.area_sqft ? `· ${l.area_sqft} sqft` : ''}</p>
-                      <div className="flex gap-4 text-[10px] text-text-secondary">
-                        <span>👁 {l.view_count || 0} views</span>
-                        <span>✉️ {l.enquiry_count || 0} enquiries</span>
-                      </div>
+
                       {l.status === 'rejected' && l.rejection_reason && (
-                        <div className="bg-rose-50 border border-rose-200 rounded-lg p-3 text-xs text-rose-700">
+                        <div className="bg-rose-50 border border-rose-200 rounded-xl p-3 text-xs text-rose-700">
                           <strong>Rejection Reason:</strong> {l.rejection_reason}
                         </div>
                       )}
+
                       <div className="flex gap-2 pt-2 border-t border-border">
                         <button onClick={() => { setEditingListing(l); setTab('wizard'); }}
-                          className="flex-1 text-xs font-bold text-primary hover:bg-primary/5 py-1.5 rounded-md transition-colors">Edit</button>
-                        <button onClick={() => navigate(`/listings/${l._id}`)}
-                          className="flex-1 text-xs font-bold text-teal-600 hover:bg-teal-50 py-1.5 rounded-md transition-colors">Preview</button>
+                          className="flex-1 text-xs font-bold text-primary bg-primary/5 hover:bg-primary/10 py-1.5 rounded-xl transition-colors">
+                          Edit
+                        </button>
+                        <button onClick={() => { setPreviewListing(l); setSelectedImageIdx(0); }}
+                          className="flex-1 text-xs font-bold text-teal-600 bg-teal-50 hover:bg-teal-100 py-1.5 rounded-xl transition-colors">
+                          Preview
+                        </button>
                         <button onClick={() => setDeletingListing(l)}
-                          className="flex-1 text-xs font-bold text-rose-500 hover:bg-rose-50 py-1.5 rounded-md transition-colors">Delete</button>
+                          className="flex-1 text-xs font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 py-1.5 rounded-xl transition-colors">
+                          Delete
+                        </button>
                       </div>
                     </Card>
                   ))}
@@ -729,10 +909,10 @@ export default function OwnerDashboard() {
             </div>
           )}
 
-          {/* ── WIZARD ───────────────────────────────────────────────── */}
+          {/* ── WIZARD TAB ───────────────────────────────────────────── */}
           {activeTab === 'wizard' && (
-            <div className="animate-fade-in">
-              <h3 className="font-bold text-lg text-text-primary mb-6">
+            <div className="animate-fade-in font-sans space-y-4">
+              <h3 className="font-extrabold text-xl text-text-primary">
                 {editingListing ? `Edit Property: ${editingListing.title}` : 'Add New Property'}
               </h3>
               <PropertyWizard
@@ -743,82 +923,50 @@ export default function OwnerDashboard() {
             </div>
           )}
 
-          {/* ── ANALYTICS ────────────────────────────────────────────── */}
+          {/* ── ANALYTICS TAB ────────────────────────────────────────── */}
           {activeTab === 'analytics' && (
-            <div className="space-y-6 animate-fade-in">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <StatCard value={listings.reduce((s, l) => s + (l.view_count || 0), 0)}      label="Total Views"     icon="👁" color="text-primary" />
-                <StatCard value={listings.reduce((s, l) => s + (l.enquiry_count || 0), 0)}   label="Total Enquiries" icon="✉️" color="text-teal-600" />
-                <StatCard value={visits.length}   label="Total Visit Requests" icon="📅" color="text-blue-600" />
-                <StatCard value={stats.avgRating > 0 ? `${stats.avgRating} ★` : '—'} label="Avg Rating" icon="⭐" color="text-yellow-500" />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                {listings.map(l => (
-                  <Card key={l._id} className="bg-white border border-border space-y-4">
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <h4 className="font-bold text-sm text-text-primary">{l.title}</h4>
-                        <p className="text-[10px] text-text-secondary">{l.locality} · ₹{l.price?.toLocaleString()}/mo</p>
-                      </div>
-                      <StatusBadge status={l.status} />
-                    </div>
-                    <div className="grid grid-cols-3 gap-3">
-                      {[
-                        { label: 'Views', value: l.view_count || 0, color: 'text-primary' },
-                        { label: 'Enquiries', value: l.enquiry_count || 0, color: 'text-teal-600' },
-                        { label: 'Visits', value: visits.filter(v => v.listing_id === l._id).length, color: 'text-blue-600' },
-                      ].map(m => (
-                        <div key={m.label} className="text-center bg-surface rounded-lg py-3 border border-border">
-                          <div className={`text-2xl font-extrabold ${m.color}`}>{m.value}</div>
-                          <div className="text-[9px] text-text-secondary font-bold mt-0.5">{m.label}</div>
-                        </div>
-                      ))}
-                    </div>
-                  </Card>
-                ))}
-                {listings.length === 0 && (
-                  <Card className="text-center py-12 col-span-2 text-xs text-text-secondary bg-white border border-border">
-                    No properties to show analytics for.
-                  </Card>
-                )}
-              </div>
-            </div>
+            <OwnerAnalytics listings={listings} visits={visits} />
           )}
 
-          {/* ── VISIT REQUESTS ───────────────────────────────────────── */}
+          {/* ── VISIT REQUESTS TAB ───────────────────────────────────── */}
           {activeTab === 'visits' && (
-            <div className="space-y-5 animate-fade-in">
+            <div className="space-y-5 animate-fade-in font-sans">
               {visitLoading ? (
                 <div className="py-16 text-center"><LoadingSpinner size="lg" message="Loading visit requests..." /></div>
               ) : visits.length === 0 ? (
-                <Card className="text-center py-12 bg-white border border-border text-xs text-text-secondary">
+                <Card className="text-center py-16 bg-white border border-border rounded-2xl text-xs text-text-secondary">
                   No visit requests yet. They will appear here when seekers request property tours.
                 </Card>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {visits.map(v => (
-                    <Card key={v._id} className="bg-white border border-border space-y-3">
+                    <Card key={v._id} className="bg-white border border-border rounded-2xl p-4 space-y-3 shadow-xs">
                       <div className="flex justify-between items-start">
                         <div>
-                          <p className="text-xs font-bold text-text-primary">{v.listing?.title || 'Property Visit'}</p>
-                          <p className="text-[10px] text-text-secondary">{v.listing?.locality}</p>
+                          <p className="text-xs font-extrabold text-text-primary">{v.listing?.title || 'Property Visit'}</p>
+                          <p className="text-[11px] text-primary font-bold">{v.listing?.locality}</p>
                         </div>
                         <VisitStatusBadge status={v.status} />
                       </div>
-                      <p className="text-[10px] text-text-secondary">📅 {v.scheduled_date} · ⏰ {v.time_slot}</p>
-                      {v.notes && <p className="text-[10px] italic text-text-secondary bg-surface rounded p-2">"{v.notes}"</p>}
+                      <p className="text-xs text-text-secondary font-medium">📅 {v.scheduled_date} · ⏰ {v.time_slot}</p>
+                      {v.notes && <p className="text-xs italic text-text-secondary bg-surface rounded-xl p-2.5 border border-border/50">"{v.notes}"</p>}
                       {v.status === 'requested' && (
                         <div className="flex gap-2 pt-2 border-t border-border">
                           <button onClick={() => handleVisitAction(v._id, 'confirmed')}
-                            className="flex-1 text-xs font-bold py-1.5 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors">✓ Confirm</button>
+                            className="flex-1 text-xs font-extrabold py-2 bg-[#00ADB5] text-white rounded-xl hover:bg-teal-600 transition-colors shadow-xs">
+                            Confirm Visit
+                          </button>
                           <button onClick={() => handleVisitAction(v._id, 'cancelled')}
-                            className="flex-1 text-xs font-bold py-1.5 bg-rose-500 text-white rounded-lg hover:bg-rose-600 transition-colors">✗ Decline</button>
+                            className="flex-1 text-xs font-extrabold py-2 bg-rose-600 text-white rounded-xl hover:bg-rose-700 transition-colors shadow-xs">
+                            Decline
+                          </button>
                         </div>
                       )}
                       {v.status === 'confirmed' && (
                         <button onClick={() => handleVisitAction(v._id, 'completed')}
-                          className="w-full text-xs font-bold py-1.5 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">Mark as Completed</button>
+                          className="w-full text-xs font-extrabold py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors shadow-xs">
+                          Mark as Completed
+                        </button>
                       )}
                     </Card>
                   ))}
@@ -827,335 +975,321 @@ export default function OwnerDashboard() {
             </div>
           )}
 
-          {/* ── INBOX (Owner) ─────────────────────────────────────────── */}
+          {/* ── INBOX TAB ────────────────────────────────────────────── */}
           {activeTab === 'inbox' && (
-            <div className="animate-fade-in">
-              <Card className="bg-white border border-border py-12 text-center">
-                <div className="text-5xl mb-4">💬</div>
-                <h3 className="font-bold text-lg text-text-primary">Owner Inbox</h3>
-                <p className="text-xs text-text-secondary mt-2 max-w-sm mx-auto">
-                  Messaging between seekers and property owners is handled through the shared conversation module. Conversations appear when seekers contact you from your listings.
+            <div className="animate-fade-in space-y-4 font-sans">
+              <div>
+                <h3 className="font-extrabold text-xl text-text-primary">Owner Inbox & Messages</h3>
+                <p className="text-xs text-text-secondary font-medium">
+                  Real-time chat threads with prospective tenants and relocation seekers.
                 </p>
-              </Card>
+              </div>
+              <Inbox />
             </div>
           )}
 
-          {/* ── PAYMENTS ─────────────────────────────────────────────── */}
-          {activeTab === 'payments' && (
-            <div className="space-y-5 animate-fade-in">
-              {/* Summary Cards */}
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                <StatCard value={`₹${(paymentData?.summary?.total_received || 0).toLocaleString()}`} label="Total Received" icon="💰" color="text-emerald-600" />
-                <StatCard value={`₹${(paymentData?.summary?.pending || 0).toLocaleString()}`} label="Pending" icon="⏳" color="text-amber-500" />
-                <StatCard value={(paymentData?.payments || []).length} label="Total Records" icon="📋" color="text-primary" />
-              </div>
-
-              <div className="flex justify-between items-center">
-                <h3 className="font-bold text-sm text-text-primary">Payment Records</h3>
-                <Button variant="primary" size="sm" onClick={() => setShowPayForm(true)}>+ Log Payment</Button>
-              </div>
-
-              {/* Payment Form */}
-              {(showPayForm || editPayment) && (
-                <Card className="bg-white border border-border space-y-4">
-                  <h4 className="font-bold text-sm text-text-primary">{editPayment ? 'Edit Payment' : 'Log New Payment'}</h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className={labelCls}>Property</label>
-                      <select className={inputCls} value={payForm.property_id} onChange={e => setPayForm(f => ({ ...f, property_id: e.target.value }))}>
-                        <option value="">Select property...</option>
-                        {listings.map(l => <option key={l._id} value={l._id}>{l.title}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label className={labelCls}>Tenant Name</label>
-                      <input className={inputCls} placeholder="Tenant name" value={payForm.tenant_name} onChange={e => setPayForm(f => ({ ...f, tenant_name: e.target.value }))} />
-                    </div>
-                    <div>
-                      <label className={labelCls}>Amount (₹)</label>
-                      <input type="number" className={inputCls} placeholder="e.g. 18000" value={payForm.amount} onChange={e => setPayForm(f => ({ ...f, amount: e.target.value }))} />
-                    </div>
-                    <div>
-                      <label className={labelCls}>Payment Date</label>
-                      <input type="date" className={inputCls} value={payForm.payment_date} onChange={e => setPayForm(f => ({ ...f, payment_date: e.target.value }))} />
-                    </div>
-                    <div>
-                      <label className={labelCls}>Status</label>
-                      <select className={inputCls} value={payForm.payment_status} onChange={e => setPayForm(f => ({ ...f, payment_status: e.target.value }))}>
-                        {['received', 'pending', 'overdue', 'refunded'].map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label className={labelCls}>Method</label>
-                      <select className={inputCls} value={payForm.payment_method} onChange={e => setPayForm(f => ({ ...f, payment_method: e.target.value }))}>
-                        {['bank_transfer', 'cash', 'upi', 'cheque', 'other'].map(m => <option key={m} value={m}>{m.replace('_', ' ')}</option>)}
-                      </select>
-                    </div>
-                  </div>
-                  <div>
-                    <label className={labelCls}>Notes</label>
-                    <input className={inputCls} placeholder="Optional notes..." value={payForm.notes} onChange={e => setPayForm(f => ({ ...f, notes: e.target.value }))} />
-                  </div>
-                  <div className="flex gap-3 justify-end">
-                    <Button variant="secondary" size="sm" onClick={() => { setShowPayForm(false); setEditPayment(null); }}>Cancel</Button>
-                    <Button variant="primary" size="sm" onClick={handlePaymentSave}>Save Payment</Button>
-                  </div>
-                </Card>
-              )}
-
-              {payLoading ? (
-                <LoadingSpinner size="md" message="Loading payments..." />
-              ) : (paymentData?.payments || []).length === 0 ? (
-                <Card className="text-center py-12 bg-white border border-border text-xs text-text-secondary">
-                  No payment records yet. Use the button above to log your first payment.
-                </Card>
-              ) : (
-                <div className="bg-white border border-border rounded-xl overflow-hidden">
-                  <table className="w-full text-xs">
-                    <thead className="bg-surface border-b border-border">
-                      <tr>
-                        {['Property', 'Tenant', 'Amount', 'Date', 'Status', 'Method', 'Actions'].map(h => (
-                          <th key={h} className="text-left px-4 py-3 font-extrabold text-text-secondary uppercase tracking-wider text-[9px]">{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border">
-                      {(paymentData?.payments || []).map(p => {
-                        const listing = listings.find(l => l._id === p.property_id);
-                        return (
-                          <tr key={p._id} className="hover:bg-surface/50 transition-colors">
-                            <td className="px-4 py-3 font-semibold text-text-primary truncate max-w-[120px]">{listing?.title || p.property_id}</td>
-                            <td className="px-4 py-3 text-text-secondary">{p.tenant_name}</td>
-                            <td className="px-4 py-3 font-bold text-primary">₹{Number(p.amount).toLocaleString()}</td>
-                            <td className="px-4 py-3 text-text-secondary">{p.payment_date}</td>
-                            <td className="px-4 py-3">
-                              <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
-                                p.payment_status === 'received' ? 'bg-emerald-100 text-emerald-700' :
-                                p.payment_status === 'pending'  ? 'bg-amber-100 text-amber-700' :
-                                p.payment_status === 'overdue'  ? 'bg-rose-100 text-rose-600' :
-                                'bg-surface text-text-secondary'
-                              }`}>{p.payment_status}</span>
-                            </td>
-                            <td className="px-4 py-3 text-text-secondary capitalize">{(p.payment_method || '').replace('_', ' ')}</td>
-                            <td className="px-4 py-3">
-                              <div className="flex gap-2">
-                                <button onClick={() => { setEditPayment(p); setPayForm({ ...p }); }}
-                                  className="text-primary hover:underline font-bold">Edit</button>
-                                <button onClick={() => handleDeletePayment(p._id)}
-                                  className="text-rose-500 hover:underline font-bold">Del</button>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ── REVIEWS ──────────────────────────────────────────────── */}
-          {activeTab === 'reviews' && (
-            <div className="space-y-5 animate-fade-in">
-              <div className="flex items-center gap-4">
-                <div className="text-4xl font-extrabold text-primary">{reviewData?.average_rating || '—'}</div>
-                <div>
-                  <p className="text-sm font-bold text-text-primary">Average Rating</p>
-                  <p className="text-xs text-text-secondary">{(reviewData?.reviews || []).length} review(s) across all properties</p>
-                </div>
-              </div>
-
-              {reviewLoading ? (
-                <LoadingSpinner size="md" message="Loading reviews..." />
-              ) : (reviewData?.reviews || []).length === 0 ? (
-                <Card className="text-center py-12 bg-white border border-border text-xs text-text-secondary">
-                  No tenant reviews yet.
-                </Card>
-              ) : (
-                <div className="space-y-4">
-                  {(reviewData?.reviews || []).map(r => (
-                    <Card key={r._id} className="bg-white border border-border space-y-3">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <p className="font-bold text-sm text-text-primary">{r.tenant_name}</p>
-                          <p className="text-[10px] text-text-secondary">{r.listing?.locality || r.property_id}</p>
-                        </div>
-                        <div className="text-sm font-extrabold text-yellow-500">{'★'.repeat(r.rating)}{'☆'.repeat(5 - r.rating)}</div>
-                      </div>
-                      <p className="text-xs text-text-primary leading-relaxed">{r.review}</p>
-                      {r.owner_reply && (
-                        <div className="bg-primary/5 border border-primary/20 rounded-lg p-3">
-                          <p className="text-[9px] font-extrabold text-primary uppercase mb-1">Owner Reply</p>
-                          <p className="text-xs text-text-primary">{r.owner_reply}</p>
-                        </div>
-                      )}
-                      {!r.owner_reply && (
-                        <div className="flex gap-2">
-                          <input
-                            className="flex-1 bg-surface border border-border rounded-lg px-3 py-1.5 text-xs text-text-primary outline-none focus:border-primary transition-colors"
-                            placeholder="Write a reply..."
-                            value={replyText[r._id] || ''}
-                            onChange={e => setReplyText(t => ({ ...t, [r._id]: e.target.value }))}
-                          />
-                          <Button variant="primary" size="sm" onClick={() => handleReply(r._id)}>Reply</Button>
-                        </div>
-                      )}
-                    </Card>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ── DOCUMENTS ────────────────────────────────────────────── */}
-          {activeTab === 'documents' && (
-            <div className="space-y-5 animate-fade-in">
-              <div className="flex justify-between items-center">
-                <h3 className="font-bold text-sm text-text-primary">Property Documents ({documents.length})</h3>
-                <Button variant="primary" size="sm" onClick={() => setShowDocForm(v => !v)}>
-                  {showDocForm ? 'Cancel' : '+ Add Document'}
-                </Button>
-              </div>
-
-              {showDocForm && (
-                <Card className="bg-white border border-border space-y-4">
-                  <h4 className="font-bold text-sm text-text-primary">Add Document Metadata</h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className={labelCls}>Property</label>
-                      <select className={inputCls} value={docForm.property_id} onChange={e => setDocForm(f => ({ ...f, property_id: e.target.value }))}>
-                        <option value="">Select property...</option>
-                        {listings.map(l => <option key={l._id} value={l._id}>{l.title}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label className={labelCls}>Document Title</label>
-                      <input className={inputCls} placeholder="e.g. Title Deed 2023" value={docForm.title} onChange={e => setDocForm(f => ({ ...f, title: e.target.value }))} />
-                    </div>
-                    <div>
-                      <label className={labelCls}>Document Type</label>
-                      <select className={inputCls} value={docForm.doc_type} onChange={e => setDocForm(f => ({ ...f, doc_type: e.target.value }))}>
-                        {['title_deed', 'property_tax', 'ownership_proof', 'electricity_bill', 'water_bill', 'other'].map(d => (
-                          <option key={d} value={d}>{d.replace('_', ' ')}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className={labelCls}>File URL / Drive Link</label>
-                      <input className={inputCls} placeholder="https://drive.google.com/..." value={docForm.file_url} onChange={e => setDocForm(f => ({ ...f, file_url: e.target.value }))} />
-                    </div>
-                  </div>
-                  <div>
-                    <label className={labelCls}>Notes</label>
-                    <input className={inputCls} placeholder="Optional notes..." value={docForm.notes} onChange={e => setDocForm(f => ({ ...f, notes: e.target.value }))} />
-                  </div>
-                  <div className="flex justify-end">
-                    <Button variant="primary" size="sm" onClick={handleDocUpload}>Save Document</Button>
-                  </div>
-                </Card>
-              )}
-
-              {docLoading ? (
-                <LoadingSpinner size="md" message="Loading documents..." />
-              ) : documents.length === 0 ? (
-                <Card className="text-center py-12 bg-white border border-border text-xs text-text-secondary">
-                  No documents added yet. Use the button above to track property documents.
-                </Card>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {documents.map(d => {
-                    const listing = listings.find(l => l._id === d.property_id);
-                    return (
-                      <Card key={d._id} className="bg-white border border-border space-y-2">
-                        <div className="flex justify-between items-start gap-2">
-                          <div>
-                            <p className="font-bold text-sm text-text-primary">{d.title}</p>
-                            <p className="text-[10px] text-text-secondary">{listing?.title || d.property_id}</p>
-                          </div>
-                          <span className="text-[9px] font-bold px-2 py-0.5 bg-surface border border-border rounded-full text-text-secondary uppercase">
-                            {(d.doc_type || 'other').replace('_', ' ')}
-                          </span>
-                        </div>
-                        {d.notes && <p className="text-[10px] text-text-secondary italic">"{d.notes}"</p>}
-                        <div className="flex gap-2 pt-2 border-t border-border">
-                          {d.file_url && (
-                            <a href={d.file_url} target="_blank" rel="noreferrer"
-                              className="flex-1 text-center text-xs font-bold text-primary hover:bg-primary/5 py-1.5 rounded-md transition-colors">
-                              View / Download
-                            </a>
-                          )}
-                          <button onClick={() => handleDeleteDoc(d._id)}
-                            className="flex-1 text-xs font-bold text-rose-500 hover:bg-rose-50 py-1.5 rounded-md transition-colors">
-                            Delete
-                          </button>
-                        </div>
-                      </Card>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ── PROFILE ──────────────────────────────────────────────── */}
+          {/* ── PROFILE TAB ──────────────────────────────────────────── */}
           {activeTab === 'profile' && (
-            <div className="max-w-lg mx-auto space-y-5 animate-fade-in">
-              <Card className="bg-white border border-border space-y-4">
+            <div className="max-w-xl mx-auto space-y-6 animate-fade-in font-sans">
+              <Card className="bg-white border border-border rounded-2xl p-6 space-y-5 shadow-xs">
                 <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 rounded-full bg-gradient-to-br from-primary to-teal-500 flex items-center justify-center text-white font-extrabold text-xl shadow-md">
-                    {user?.email?.[0]?.toUpperCase() || 'O'}
+                  <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[#00ADB5] to-teal-600 flex items-center justify-center text-white font-black text-xl shadow-md">
+                    {getUserDisplayName(user)[0]?.toUpperCase() || 'O'}
                   </div>
                   <div>
-                    <h3 className="font-bold text-base text-text-primary">{user?.email}</h3>
-                    <span className="text-[9px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full uppercase">Property Owner</span>
+                    <h3 className="font-extrabold text-base text-text-primary">Hello, {getUserDisplayName(user)}</h3>
+                    <p className="text-xs text-text-secondary font-medium">{user?.email}</p>
+                    <span className="text-[10px] font-black text-[#00ADB5] bg-primary/10 px-2.5 py-0.5 rounded-full uppercase tracking-wider inline-block mt-1">Property Owner</span>
                   </div>
                 </div>
-                <div className="bg-surface border border-border rounded-lg p-4 space-y-2">
+                <div className="bg-surface border border-border rounded-xl p-4 space-y-2.5 text-xs">
                   {[
-                    ['Email', user?.email],
-                    ['Account Type', 'Property Owner'],
+                    ['Email Address', user?.email],
+                    ['Account Role', 'Property Owner'],
                     ['Properties Listed', listings.length],
                     ['Account Status', 'Active'],
                   ].map(([k, v]) => (
-                    <div key={k} className="flex justify-between text-xs">
+                    <div key={k} className="flex justify-between">
                       <span className="text-text-secondary font-medium">{k}</span>
-                      <span className="font-bold text-text-primary">{v}</span>
+                      <span className="font-extrabold text-text-primary">{v}</span>
                     </div>
                   ))}
                 </div>
               </Card>
-              <Card className="bg-white border border-border space-y-3">
-                <h4 className="font-bold text-sm text-text-primary">Security</h4>
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-xs text-amber-800 font-medium">
-                  🔒 To reset your password, log out and use the Forgot Password flow on the login page.
-                </div>
+
+              {/* Change Password Form */}
+              <Card className="bg-white border border-border rounded-2xl p-6 space-y-4 shadow-xs">
+                <h4 className="font-black text-xs text-text-primary uppercase tracking-wider">🔒 Change Password</h4>
+
+                {passError && (
+                  <div className="bg-rose-50 border border-rose-200 text-rose-800 px-3.5 py-2 rounded-xl text-xs font-bold">
+                    ⚠️ {passError}
+                  </div>
+                )}
+                {passSuccess && (
+                  <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 px-3.5 py-2 rounded-xl text-xs font-bold">
+                    ✅ {passSuccess}
+                  </div>
+                )}
+
+                <form onSubmit={handleChangePassword} className="space-y-3">
+                  <Input
+                    label="Current / Old Password"
+                    type="password"
+                    placeholder="Enter current password"
+                    value={passState.old_password}
+                    onChange={(e) => setPassState({ ...passState, old_password: e.target.value })}
+                  />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <Input
+                      label="New Password"
+                      type="password"
+                      placeholder="At least 6 characters"
+                      value={passState.new_password}
+                      onChange={(e) => setPassState({ ...passState, new_password: e.target.value })}
+                    />
+                    <Input
+                      label="Confirm New Password"
+                      type="password"
+                      placeholder="Re-enter new password"
+                      value={passState.confirm_password}
+                      onChange={(e) => setPassState({ ...passState, confirm_password: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="flex justify-end pt-2">
+                    <Button type="submit" variant="primary" size="md" loading={passLoading} className="font-bold rounded-xl">
+                      Update Password
+                    </Button>
+                  </div>
+                </form>
               </Card>
-              <Card className="bg-white border border-rose-200 space-y-3">
-                <h4 className="font-bold text-sm text-rose-600">Danger Zone</h4>
-                <p className="text-xs text-rose-700">Deleting your account removes all your properties and records permanently.</p>
-                <Button variant="danger" size="sm" onClick={() => alert('Contact support@movesmart.in to request account deletion.')}>
-                  Request Account Deletion
-                </Button>
+
+              {/* Danger Zone: Account Deletion */}
+              <Card className="bg-rose-50/60 border border-rose-200 rounded-2xl p-6 space-y-4 shadow-xs">
+                <div>
+                  <h4 className="font-black text-xs text-rose-600 uppercase tracking-wider">Danger Zone</h4>
+                  <p className="text-xs font-bold text-rose-900 mt-1">Permanent Account Deletion</p>
+                  <p className="text-xs text-rose-700 font-medium mt-0.5">
+                    Deleting your owner account is permanent and cannot be undone. All your listed properties, analytics, visit requests, and messages will be permanently removed.
+                  </p>
+                </div>
+
+                {deleteError && (
+                  <div className="bg-rose-100 border border-rose-300 text-rose-900 px-3.5 py-2 rounded-xl text-xs font-bold">
+                    ⚠️ {deleteError}
+                  </div>
+                )}
+
+                <form onSubmit={handleDeleteAccount} className="space-y-3">
+                  <Input
+                    label="Confirm Password to Delete Account"
+                    type="password"
+                    placeholder="Enter your account password"
+                    value={deletePass}
+                    onChange={(e) => setDeletePass(e.target.value)}
+                  />
+
+                  <label className="flex items-start gap-2.5 cursor-pointer pt-1">
+                    <input
+                      type="checkbox"
+                      checked={deleteConfirmed}
+                      onChange={(e) => setDeleteConfirmed(e.target.checked)}
+                      className="mt-0.5 w-4 h-4 rounded text-rose-600 focus:ring-rose-500 border-rose-300 cursor-pointer"
+                    />
+                    <span className="text-xs font-bold text-rose-900 select-none">
+                      I understand that deleting my owner account is permanent and all my data will be permanently erased.
+                    </span>
+                  </label>
+
+                  <div className="pt-2">
+                    <Button
+                      type="submit"
+                      variant="danger"
+                      size="md"
+                      loading={deleteLoading}
+                      disabled={!deletePass || !deleteConfirmed || deleteLoading}
+                      className="w-full sm:w-auto font-bold rounded-xl shadow-xs"
+                    >
+                      🗑️ Delete Account Permanently
+                    </Button>
+                  </div>
+                </form>
               </Card>
             </div>
           )}
-
         </div>
       </main>
 
       {/* Delete Listing Modal */}
       {deletingListing && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl p-6 max-w-sm w-full shadow-xl">
-            <h3 className="text-base font-bold text-text-primary mb-2">Delete Property?</h3>
-            <p className="text-xs text-text-secondary mb-6">
-              Are you sure you want to delete <strong>"{deletingListing.title}"</strong>? This cannot be undone.
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl space-y-4">
+            <h3 className="text-base font-extrabold text-text-primary">Delete Property?</h3>
+            <p className="text-xs text-text-secondary font-medium">
+              Are you sure you want to delete <strong>"{deletingListing.title}"</strong>? This action cannot be undone.
             </p>
-            <div className="flex gap-3 justify-end">
-              <Button variant="secondary" size="sm" onClick={() => setDeletingListing(null)}>Cancel</Button>
-              <Button variant="danger" size="sm" onClick={handleDeleteConfirm}>Confirm Delete</Button>
+            <div className="flex gap-3 justify-end pt-2">
+              <Button variant="secondary" size="sm" onClick={() => setDeletingListing(null)} className="font-bold text-xs rounded-xl">Cancel</Button>
+              <Button variant="danger" size="sm" onClick={handleDeleteConfirm} className="font-bold text-xs rounded-xl">Confirm Delete</Button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Property Preview Modal */}
+      {previewListing && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-border flex flex-col font-sans">
+            
+            {/* Modal Header Bar */}
+            <div className="sticky top-0 z-10 bg-white/90 backdrop-blur-md px-6 py-4 border-b border-border flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className="text-xs font-black uppercase tracking-wider text-[#00ADB5] bg-[#00ADB5]/10 px-3 py-1 rounded-full">Property Preview</span>
+                <StatusBadge status={previewListing.status} />
+              </div>
+              <button
+                onClick={() => setPreviewListing(null)}
+                className="w-8 h-8 rounded-full bg-surface hover:bg-border/60 flex items-center justify-center text-text-secondary hover:text-text-primary transition-colors"
+                title="Close Modal"
+              >
+                <XIcon className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-5">
+              
+              {/* Image Gallery */}
+              {(() => {
+                const imgList = (previewListing.images && previewListing.images.length > 0)
+                  ? previewListing.images
+                  : (previewListing.photos && previewListing.photos.length > 0)
+                  ? previewListing.photos
+                  : ['https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=800&q=80'];
+                
+                const activeImg = imgList[selectedImageIdx] || imgList[0];
+
+                return (
+                  <div className="space-y-3">
+                    <div className="relative w-full h-64 sm:h-72 rounded-2xl overflow-hidden bg-gray-100 border border-border shadow-inner">
+                      <img
+                        src={activeImg}
+                        alt={previewListing.title}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.target.src = 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=800&q=80';
+                        }}
+                      />
+                      <div className="absolute bottom-3 right-3 bg-black/60 backdrop-blur-md text-white text-[11px] font-extrabold px-3 py-1 rounded-full">
+                        📷 {selectedImageIdx + 1} of {imgList.length}
+                      </div>
+                    </div>
+
+                    {/* Thumbnail Strip */}
+                    {imgList.length > 1 && (
+                      <div className="flex gap-2 overflow-x-auto pb-1">
+                        {imgList.map((imgUrl, idx) => (
+                          <button
+                            key={idx}
+                            onClick={() => setSelectedImageIdx(idx)}
+                            className={`relative w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 border-2 transition-all ${
+                              selectedImageIdx === idx ? 'border-[#00ADB5] ring-2 ring-[#00ADB5]/30 scale-105' : 'border-transparent opacity-70 hover:opacity-100'
+                            }`}
+                          >
+                            <img src={imgUrl} alt={`Thumbnail ${idx + 1}`} className="w-full h-full object-cover" />
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* Title & Key Highlights */}
+              <div className="space-y-1">
+                <h2 className="text-xl font-black text-text-primary">{previewListing.title}</h2>
+                <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-text-secondary">
+                  <span className="text-[#00ADB5] font-extrabold">📍 {previewListing.locality || 'Ahmedabad'}</span>
+                  <span>•</span>
+                  <span>🏠 {previewListing.bhk || 1} BHK</span>
+                  {previewListing.area_sqft && (
+                    <>
+                      <span>•</span>
+                      <span>📐 {previewListing.area_sqft} sqft</span>
+                    </>
+                  )}
+                  {previewListing.furnishing && (
+                    <>
+                      <span>•</span>
+                      <span className="capitalize">🛋️ {previewListing.furnishing}</span>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Pricing Box */}
+              <div className="bg-[#00ADB5]/5 border border-[#00ADB5]/20 rounded-2xl p-4 flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider font-extrabold text-[#00ADB5]">Monthly Rent</p>
+                  <p className="text-2xl font-black text-[#00ADB5]">
+                    ₹{previewListing.price?.toLocaleString() || '1,084'} <span className="text-xs font-semibold text-text-secondary">/ month</span>
+                  </p>
+                </div>
+                {previewListing.deposit && (
+                  <div className="text-right">
+                    <p className="text-[10px] uppercase tracking-wider font-bold text-text-secondary">Security Deposit</p>
+                    <p className="text-sm font-extrabold text-text-primary">₹{previewListing.deposit?.toLocaleString()}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Description */}
+              {previewListing.description && (
+                <div className="space-y-1">
+                  <h4 className="text-xs font-black uppercase text-text-secondary tracking-wider">Property Description</h4>
+                  <p className="text-xs text-text-primary leading-relaxed font-medium bg-surface p-3.5 rounded-2xl border border-border/60">
+                    {previewListing.description}
+                  </p>
+                </div>
+              )}
+
+              {/* Amenities / Features */}
+              {previewListing.amenities && previewListing.amenities.length > 0 && (
+                <div className="space-y-2">
+                  <h4 className="text-xs font-black uppercase text-text-secondary tracking-wider">Amenities & Features</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {previewListing.amenities.map((am, i) => (
+                      <span key={i} className="text-xs font-bold text-text-primary bg-white border border-border px-3 py-1.5 rounded-xl shadow-2xs">
+                        ✨ {am}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Rejection Alert if rejected */}
+              {previewListing.status === 'rejected' && previewListing.rejection_reason && (
+                <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4 text-xs text-rose-700 space-y-1">
+                  <p className="font-extrabold">⚠️ Listing Rejected by Admin</p>
+                  <p className="font-medium">{previewListing.rejection_reason}</p>
+                </div>
+              )}
+
+            </div>
+
+            {/* Modal Footer Actions */}
+            <div className="sticky bottom-0 bg-white px-6 py-4 border-t border-border flex justify-end items-center">
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => setPreviewListing(null)}
+                className="w-full sm:w-auto font-bold rounded-xl text-xs px-6"
+              >
+                Close Preview
+              </Button>
+            </div>
+
           </div>
         </div>
       )}

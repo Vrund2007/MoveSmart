@@ -114,7 +114,7 @@ export default function VisitScheduler() {
                 {v.notes && <p className="text-xs italic text-text-secondary mt-2 bg-surface p-2 rounded">"{v.notes}"</p>}
               </div>
 
-              {v.status !== 'cancelled' && (
+              {v.status !== 'cancelled' && v.status !== 'completed' && (
                 <div className="pt-2 border-t border-border flex justify-end">
                   <Button variant="danger" size="sm" onClick={() => handleCancelVisit(v._id)}>
                     Cancel Visit
@@ -140,10 +140,15 @@ export default function VisitScheduler() {
                 className="w-full bg-surface border border-border rounded p-2.5 text-xs text-text-primary"
               >
                 <option value="">Select property...</option>
-                {approvedListings.map((p) => (
-                  <option key={p._id} value={p._id}>{p.title} ({p.locality}) — ₹{p.price?.toLocaleString()}</option>
-                ))}
+                {approvedListings
+                  .filter((p) => p.owner_id || p.submitted_by_broker_id || p.source === 'landlord_portal')
+                  .map((p) => (
+                    <option key={p._id} value={p._id}>{p.title} ({p.locality}) — ₹{p.price?.toLocaleString()}</option>
+                  ))}
               </select>
+              <p className="text-[10px] text-text-secondary mt-1">
+                ℹ️ Only properties with registered platform Landlords / Brokers can be scheduled online.
+              </p>
             </div>
             <Input
               label="Visit Date"

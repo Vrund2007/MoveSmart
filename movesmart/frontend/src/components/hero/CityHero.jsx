@@ -49,6 +49,7 @@ const FLOATING_CARDS = [
 
 export function HeroNavbar({ scrolled }) {
   const [activeTab, setActiveTab] = useState('Home');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const navItems = [
     { label: 'Home', href: '/' },
@@ -59,11 +60,40 @@ export function HeroNavbar({ scrolled }) {
     { label: 'Stats', href: '#statistics' },
   ];
 
+  const handleNavClick = (e, item) => {
+    setActiveTab(item.label);
+    setMobileMenuOpen(false);
+
+    if (item.href === '/') {
+      e.preventDefault();
+      const smoother = window.gsapSmoother;
+      if (smoother && typeof smoother.scrollTo === 'function') {
+        smoother.scrollTo(0, true);
+      } else {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+      return;
+    }
+
+    if (item.href.startsWith('#')) {
+      e.preventDefault();
+      const targetEl = document.querySelector(item.href);
+      if (targetEl) {
+        const smoother = window.gsapSmoother;
+        if (smoother && typeof smoother.scrollTo === 'function') {
+          smoother.scrollTo(targetEl, true, 'top top');
+        } else {
+          targetEl.scrollIntoView({ behavior: 'smooth' });
+        }
+      }
+    }
+  };
+
   return (
     <header
       className={[
-        'fixed top-0 left-0 right-0 z-50 transition-all duration-300 py-4 px-6 md:px-12',
-        scrolled ? 'bg-white/85 backdrop-blur-xl shadow-md py-3' : 'bg-transparent',
+        'fixed top-0 left-0 right-0 z-50 transition-all duration-300 py-3 px-4 sm:px-6 md:px-12',
+        scrolled || mobileMenuOpen ? 'bg-white/95 backdrop-blur-xl shadow-md py-3' : 'bg-transparent',
       ].join(' ')}
     >
       <div className="w-full flex items-center justify-between">
@@ -71,23 +101,23 @@ export function HeroNavbar({ scrolled }) {
         {/* Interactive Logo & Brand */}
         <a
           href="/"
+          onClick={(e) => handleNavClick(e, { label: 'Home', href: '/' })}
           className="group flex items-center gap-3.5 no-underline transition-transform duration-200 hover:scale-[1.02] interactive-hover"
           aria-label="MoveSmart Homepage"
         >
-
-          <div className="relative w-11 h-11 rounded-full p-0.5 bg-gradient-to-tr from-[#00ADB5] via-[#222831] to-[#00ADB5] shadow-sm transition-shadow duration-300 group-hover:shadow-md group-hover:shadow-[#00ADB5]/25">
+          <div className="relative w-10 h-10 sm:w-11 sm:h-11 rounded-full p-0.5 bg-gradient-to-tr from-[#00ADB5] via-[#222831] to-[#00ADB5] shadow-sm transition-shadow duration-300 group-hover:shadow-md group-hover:shadow-[#00ADB5]/25">
             <img
               src="/smart-Building.png"
               alt="MoveSmart Logo"
               className="w-full h-full rounded-full object-cover bg-white"
             />
           </div>
-          <span className="font-extrabold text-2xl tracking-tight text-[#222831] font-['Plus_Jakarta_Sans'] leading-none">
+          <span className="font-extrabold text-xl sm:text-2xl tracking-tight text-[#222831] font-['Plus_Jakarta_Sans'] leading-none">
             Move<span className="text-[#00ADB5]">Smart</span>
           </span>
         </a>
 
-        {/* Floating Glass Nav Pill */}
+        {/* Floating Glass Nav Pill — Desktop */}
         <nav className="hidden md:flex items-center bg-white/85 backdrop-blur-md px-4 py-1.5 rounded-full border border-black/5 shadow-xs">
           {navItems.map((item) => {
             const isActive = activeTab === item.label;
@@ -95,7 +125,7 @@ export function HeroNavbar({ scrolled }) {
               <a
                 key={item.label}
                 href={item.href}
-                onClick={() => setActiveTab(item.label)}
+                onClick={(e) => handleNavClick(e, item)}
                 className={[
                   'relative px-4 py-1.5 text-sm font-semibold rounded-full transition-all duration-200 interactive-hover',
                   isActive
@@ -109,16 +139,45 @@ export function HeroNavbar({ scrolled }) {
           })}
         </nav>
 
-        {/* CTA Button */}
-        <div className="flex items-center gap-3">
+        {/* CTA Button & Mobile Hamburger */}
+        <div className="flex items-center gap-2 sm:gap-3">
           <a
-            href="/signup"
-            className="interactive-hover relative inline-flex items-center justify-center px-6 py-2.5 text-sm font-bold text-white transition-all duration-300 rounded-full bg-gradient-to-r from-[#00ADB5] to-[#008C93] shadow-md shadow-[#00ADB5]/25 hover:shadow-lg hover:shadow-[#00ADB5]/40 hover:scale-[1.03] active:scale-[0.98]"
+            href="/login"
+            className="interactive-hover relative inline-flex items-center justify-center px-4 sm:px-6 py-2 sm:py-2.5 text-xs sm:text-sm font-bold text-white transition-all duration-300 rounded-full bg-gradient-to-r from-[#00ADB5] to-[#008C93] shadow-md shadow-[#00ADB5]/25 hover:shadow-lg hover:shadow-[#00ADB5]/40 hover:scale-[1.03] active:scale-[0.98]"
           >
             Get Started
           </a>
+
+          {/* Mobile Hamburger Toggle */}
+          <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="md:hidden p-2 rounded-xl text-[#222831] bg-white/80 border border-black/10 hover:bg-white transition-colors"
+            aria-label="Toggle navigation menu"
+          >
+            {mobileMenuOpen ? (
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            ) : (
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+            )}
+          </button>
         </div>
       </div>
+
+      {/* Mobile Navigation Drawer Dropdown */}
+      {mobileMenuOpen && (
+        <div className="md:hidden mt-3 pt-3 border-t border-black/10 bg-white/95 backdrop-blur-xl rounded-2xl p-4 shadow-xl space-y-1.5 animate-fade-in">
+          {navItems.map((item) => (
+            <a
+              key={item.label}
+              href={item.href}
+              onClick={(e) => handleNavClick(e, item)}
+              className="block px-4 py-2.5 rounded-xl text-sm font-bold text-[#222831] hover:bg-[#00ADB5]/10 hover:text-[#00ADB5] transition-colors"
+            >
+              {item.label}
+            </a>
+          ))}
+        </div>
+      )}
     </header>
   );
 }
@@ -265,7 +324,7 @@ export default function CityHero({ modelLoaded = true }) {
           <div className="mb-10 flex items-center gap-4">
             <a
               ref={ctaBtnRef}
-              href="/signup"
+              href="/login"
               onMouseMove={handleCtaMouseMove}
               onMouseLeave={handleCtaMouseLeave}
               className="interactive-hover magnetic-btn-glow inline-flex items-center gap-2.5 bg-[#00ADB5] text-white font-bold rounded-xl shadow-lg shadow-[#00ADB5]/25 hover:shadow-xl hover:shadow-[#00ADB5]/35 hover:bg-[#00969d] px-8 py-4 text-base transition-all duration-200 no-underline"
@@ -306,35 +365,37 @@ export default function CityHero({ modelLoaded = true }) {
       </div>
 
       {/* ── MOBILE LAYOUT ── */}
-      <div className="flex md:hidden flex-col min-h-screen pt-24 px-6 pb-8">
-        <h1 className="font-extrabold text-3xl text-[#222831] leading-tight mb-4 font-['Plus_Jakarta_Sans']">
-          Find Your <span className="text-[#00ADB5]">Perfect City</span>, Not Just a House.
-        </h1>
-        <p className="text-[#393E46] text-base leading-relaxed mb-6 font-medium">
-          Your AI-powered city companion for finding the perfect home, smartest commute, and the best life.
-        </p>
-        <a
-          href="/signup"
-          className="interactive-hover block text-center bg-[#00ADB5] text-white font-bold py-3.5 px-6 rounded-xl mb-8 shadow-md shadow-[#00ADB5]/25 text-base no-underline"
-        >
-          Start Planning &rarr;
-        </a>
+      <div className="flex md:hidden flex-col justify-center min-h-screen pt-24 px-4 pb-8 relative z-20">
+        <div className="bg-white/85 backdrop-blur-xl p-6 sm:p-8 rounded-3xl border border-white/90 shadow-xl my-auto">
+          <h1 className="font-extrabold text-2xl sm:text-3xl text-[#222831] leading-tight mb-3 font-['Plus_Jakarta_Sans']">
+            Find Your <span className="bg-gradient-to-r from-[#222831] via-[#00ADB5] to-[#222831] bg-clip-text text-transparent">Perfect City</span>, Not Just a House.
+          </h1>
+          <p className="text-[#393E46] text-sm sm:text-base leading-relaxed mb-6 font-medium">
+            Your AI-powered city companion for finding the perfect home, smartest commute, and the best life.
+          </p>
+          <a
+            href="/login"
+            className="interactive-hover block text-center bg-[#00ADB5] text-white font-bold py-3.5 px-6 rounded-xl mb-6 shadow-md shadow-[#00ADB5]/25 text-sm sm:text-base no-underline active:scale-95 transition-transform"
+          >
+            Start Planning &rarr;
+          </a>
 
-        <div className="grid grid-cols-2 gap-3 mb-6">
-          {FEATURES.map((feat) => {
-            const Icon = feat.icon;
-            return (
-              <div key={feat.title} className="flex items-start gap-2.5 p-2.5 rounded-xl bg-white/80 border border-black/5">
-                <div className="w-7 h-7 rounded bg-[#00ADB5]/10 flex items-center justify-center flex-shrink-0">
-                  <Icon size={14} color="#00ADB5" />
+          <div className="grid grid-cols-2 gap-2.5">
+            {FEATURES.map((feat) => {
+              const Icon = feat.icon;
+              return (
+                <div key={feat.title} className="flex items-start gap-2 p-2.5 rounded-xl bg-white/90 border border-black/5 shadow-2xs">
+                  <div className="w-7 h-7 rounded-lg bg-[#00ADB5]/12 flex items-center justify-center flex-shrink-0">
+                    <Icon size={14} color="#00ADB5" />
+                  </div>
+                  <div className="overflow-hidden">
+                    <p className="font-bold text-[11px] text-[#222831] m-0 truncate font-['Plus_Jakarta_Sans']">{feat.title}</p>
+                    <p className="text-[9px] font-medium text-[#393E46] m-0 truncate">{feat.label}</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="font-bold text-xs text-[#222831] m-0">{feat.title}</p>
-                  <p className="text-[10px] text-[#393E46] m-0">{feat.label}</p>
-                </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       </div>
     </section>

@@ -1,12 +1,15 @@
 // src/pages/Profile.jsx — Comprehensive Seeker Profile & Settings Manager
 import React, { useState, useContext, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import { updateRoleProfile, getUserProfile } from '../api/profile';
+import { changePassword, deleteAccount } from '../api/auth';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import Input from '../components/common/Input';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import InteractiveLocationPicker from '../components/common/InteractiveLocationPicker';
+import { getUserDisplayName } from '../utils/user';
 
 
 const FURNISHING_OPTIONS = ['Any', 'Unfurnished', 'Semi-Furnished', 'Fully-Furnished'];
@@ -48,12 +51,85 @@ function ProfileCompletionBar({ user }) {
 
 
 export default function Profile() {
-  const { user, setUser } = useContext(AuthContext);
+  const navigate = useNavigate();
+  const { user, setUser, logout } = useContext(AuthContext);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState('');
   const [activeTab, setActiveTab] = useState('preferences');
 
+  // Change Password state
+  const [passState, setPassState] = useState({ old_password: '', new_password: '', confirm_password: '' });
+  const [passLoading, setPassLoading] = useState(false);
+  const [passSuccess, setPassSuccess] = useState('');
+  const [passError, setPassError] = useState('');
+
+  // Delete Account state
+  const [deletePass, setDeletePass] = useState('');
+  const [deleteConfirmed, setDeleteConfirmed] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
+
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    setPassError('');
+    setPassSuccess('');
+
+    if (!passState.old_password || !passState.new_password || !passState.confirm_password) {
+      setPassError('Please fill in all password fields.');
+      return;
+    }
+    if (passState.new_password !== passState.confirm_password) {
+      setPassError('New password and confirm password do not match.');
+      return;
+    }
+    if (passState.new_password.length < 6) {
+      setPassError('New password must be at least 6 characters long.');
+      return;
+    }
+
+    setPassLoading(true);
+    try {
+      await changePassword({
+        old_password: passState.old_password,
+        new_password: passState.new_password,
+      });
+      setPassSuccess('Password updated successfully.');
+      setPassState({ old_password: '', new_password: '', confirm_password: '' });
+    } catch (err) {
+      setPassError(err.response?.data?.message || err.message || 'Failed to update password.');
+    } finally {
+      setPassLoading(false);
+    }
+  };
+
+  const handleDeleteAccount = async (e) => {
+    e.preventDefault();
+    setDeleteError('');
+
+    if (!deletePass) {
+      setDeleteError('Please enter your password to confirm account deletion.');
+      return;
+    }
+    if (!deleteConfirmed) {
+      setDeleteError('Please check the confirmation box to proceed.');
+      return;
+    }
+
+    setDeleteLoading(true);
+    try {
+      await deleteAccount({ password: deletePass });
+      alert('Your account has been permanently deleted.');
+      if (logout) logout();
+      navigate('/');
+    } catch (err) {
+      setDeleteError(err.response?.data?.message || err.message || 'Account deletion failed.');
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
   const [prefs, setPrefs] = useState({
+    name: '',
     max_budget: '',
     preferred_bhk: '',
     preferred_localities: '',
@@ -74,9 +150,10 @@ export default function Profile() {
   }, [setUser]);
 
   useEffect(() => {
-    if (user?.role_profile) {
-      const rp = user.role_profile;
+    if (user?.role_profile || user) {
+      const rp = user?.role_profile || {};
       setPrefs({
+        name: rp.name || user?.name || '',
         max_budget: rp.max_budget || rp.rent_budget || '',
         preferred_bhk: rp.preferred_bhk || '',
         preferred_localities: Array.isArray(rp.preferred_localities) ? rp.preferred_localities.join(', ') : (rp.preferred_localities || ''),
@@ -96,6 +173,7 @@ export default function Profile() {
     setSuccess('');
     try {
       const payload = {
+        name: prefs.name || null,
         max_budget: Number(prefs.max_budget) || null,
         rent_budget: Number(prefs.max_budget) || null,
         preferred_bhk: Number(prefs.preferred_bhk) || null,
@@ -151,11 +229,12 @@ export default function Profile() {
       <Card className="bg-white border border-border">
         <div className="flex items-center gap-4 mb-5">
           <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary to-teal-500 flex items-center justify-center font-extrabold text-white text-2xl shadow-md">
-            {user?.email?.[0]?.toUpperCase() || 'U'}
+            {getUserDisplayName(user)[0]?.toUpperCase() || 'U'}
           </div>
           <div className="flex-1">
-            <h2 className="font-bold text-lg text-text-primary">{user?.email}</h2>
-            <span className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full uppercase">
+            <h2 className="font-extrabold text-xl text-text-primary">Hello, {getUserDisplayName(user)}</h2>
+            <p className="text-xs text-text-secondary font-medium">{user?.email}</p>
+            <span className="text-[10px] font-bold text-primary bg-primary/10 px-2.5 py-0.5 rounded-full uppercase inline-block mt-1">
               Accommodation Seeker
             </span>
           </div>
@@ -184,7 +263,15 @@ export default function Profile() {
       {activeTab === 'preferences' && (
         <form onSubmit={handleSave}>
           <Card className="bg-white border border-border space-y-5">
-            <h3 className="font-bold text-sm text-text-primary">Housing Preferences</h3>
+            <h3 className="font-bold text-sm text-text-primary">User & Housing Profile</h3>
+
+            <Input
+              label="Display Name / Username"
+              type="text"
+              placeholder="e.g. Alex Shah or customer2"
+              value={prefs.name}
+              onChange={(e) => setPrefs({ ...prefs, name: e.target.value })}
+            />
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Input
@@ -347,27 +434,108 @@ export default function Profile() {
 
       {/* Security Tab */}
       {activeTab === 'security' && (
-        <Card className="bg-white border border-border space-y-5">
-          <h3 className="font-bold text-sm text-text-primary">Account Security</h3>
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-xs text-amber-800 font-medium">
-            🔒 Password changes are performed through the authentication system. Log out and use the Forgot Password flow to reset your password securely.
-          </div>
-          <div>
-            <h4 className="text-xs font-bold text-text-primary mb-2">Active Sessions</h4>
-            <div className="bg-surface border border-border p-3 rounded-lg text-xs text-text-secondary">
-              <div className="flex justify-between">
-                <span>Current Session</span>
-                <span className="text-emerald-600 font-bold">Active Now</span>
+        <Card className="bg-white border border-border space-y-6">
+          <h3 className="font-bold text-base text-text-primary">Account Security & Password</h3>
+
+          {/* Change Password Form */}
+          <form onSubmit={handleChangePassword} className="space-y-4 pb-6 border-b border-border">
+            <h4 className="text-xs font-black text-text-primary uppercase tracking-wider">Change Password</h4>
+
+            {passError && (
+              <div className="bg-rose-50 border border-rose-200 text-rose-800 px-3.5 py-2 rounded-lg text-xs font-bold">
+                ⚠️ {passError}
+              </div>
+            )}
+            {passSuccess && (
+              <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 px-3.5 py-2 rounded-lg text-xs font-bold">
+                ✅ {passSuccess}
+              </div>
+            )}
+
+            <div className="space-y-3">
+              <Input
+                label="Current / Old Password"
+                type="password"
+                placeholder="Enter current password"
+                value={passState.old_password}
+                onChange={(e) => setPassState({ ...passState, old_password: e.target.value })}
+              />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Input
+                  label="New Password"
+                  type="password"
+                  placeholder="At least 6 characters"
+                  value={passState.new_password}
+                  onChange={(e) => setPassState({ ...passState, new_password: e.target.value })}
+                />
+                <Input
+                  label="Confirm New Password"
+                  type="password"
+                  placeholder="Re-enter new password"
+                  value={passState.confirm_password}
+                  onChange={(e) => setPassState({ ...passState, confirm_password: e.target.value })}
+                />
               </div>
             </div>
-          </div>
-          <div>
-            <h4 className="text-xs font-bold text-rose-600 mb-2">Danger Zone</h4>
-            <div className="border border-rose-200 bg-rose-50 rounded-lg p-4 space-y-2">
-              <p className="text-xs text-rose-700">Deleting your account is permanent and cannot be undone. All saved properties, visit requests, and messages will be removed.</p>
-              <Button variant="danger" size="sm" onClick={() => alert('Account deletion requires email confirmation. This feature contacts support@movesmart.in')}>
-                Request Account Deletion
+
+            <div className="flex justify-end pt-1">
+              <Button type="submit" variant="primary" size="md" loading={passLoading}>
+                🔒 Update Password
               </Button>
+            </div>
+          </form>
+
+          {/* Danger Zone: Account Deletion */}
+          <div className="space-y-3 pt-2">
+            <h4 className="text-xs font-black text-rose-600 uppercase tracking-wider">Danger Zone</h4>
+            <div className="border border-rose-200 bg-rose-50/70 rounded-xl p-5 space-y-4">
+              <div>
+                <p className="text-xs font-bold text-rose-900">Permanent Account Deletion</p>
+                <p className="text-xs text-rose-700 mt-0.5">
+                  Deleting your account is permanent and cannot be undone. All saved properties, preferences, visit requests, and messages will be permanently removed.
+                </p>
+              </div>
+
+              {deleteError && (
+                <div className="bg-rose-100 border border-rose-300 text-rose-900 px-3.5 py-2 rounded-lg text-xs font-bold">
+                  ⚠️ {deleteError}
+                </div>
+              )}
+
+              <form onSubmit={handleDeleteAccount} className="space-y-3">
+                <Input
+                  label="Confirm Password to Delete Account"
+                  type="password"
+                  placeholder="Enter your account password"
+                  value={deletePass}
+                  onChange={(e) => setDeletePass(e.target.value)}
+                />
+
+                <label className="flex items-start gap-2.5 cursor-pointer pt-1">
+                  <input
+                    type="checkbox"
+                    checked={deleteConfirmed}
+                    onChange={(e) => setDeleteConfirmed(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 rounded text-rose-600 focus:ring-rose-500 border-rose-300 cursor-pointer"
+                  />
+                  <span className="text-xs font-bold text-rose-900 select-none">
+                    I understand that deleting my account is permanent and cannot be undone.
+                  </span>
+                </label>
+
+                <div className="pt-2">
+                  <Button
+                    type="submit"
+                    variant="danger"
+                    size="md"
+                    loading={deleteLoading}
+                    disabled={!deletePass || !deleteConfirmed || deleteLoading}
+                    className="w-full sm:w-auto font-bold shadow-sm"
+                  >
+                    🗑️ Delete Account Permanently
+                  </Button>
+                </div>
+              </form>
             </div>
           </div>
         </Card>

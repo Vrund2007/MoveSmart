@@ -20,9 +20,9 @@ class CommuteView(APIView):
         if not origin or not destination:
             return api_response(message="'from' and 'to' query parameters are required.", status_code=status.HTTP_400_BAD_REQUEST)
 
-        # Check cache
+        # Check cache (bypass old stale benchmark entries containing 7.2 km)
         cached = commute_cache_repo.get_cached_commute(origin, destination, mode)
-        if cached:
+        if cached and cached.get('distance_km') != 7.2 and cached.get('source') != 'estimated_benchmark':
             return api_response(data=cached, message="Commute estimate retrieved from cache.")
 
         try:

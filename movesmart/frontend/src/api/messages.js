@@ -24,9 +24,18 @@ export const getConversationDetail = async (conversationId) => {
 
 export const getConversationById = getConversationDetail;
 
-export const sendMessageToConversation = async (conversationId, text) => {
-  const response = await api.post(`/messages/conversations/${conversationId}/messages`, { text });
+export const sendMessageToConversation = async (conversationId, text = '', mediaType = 'text', mediaUrl = null) => {
+  const response = await api.post(`/messages/conversations/${conversationId}/messages`, {
+    text,
+    media_type: mediaType,
+    media_url: mediaUrl
+  });
   return response.data;
 };
 
 export const sendMessage = sendMessageToConversation;
+
+export const deleteConversation = async (conversationId) => {
+  const response = await api.delete(`/messages/conversations/${conversationId}`);
+  return response.data;
+};
