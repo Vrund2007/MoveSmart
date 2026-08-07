@@ -1,0 +1,2885 @@
+{
+  ".env": {
+    "path": ".env",
+    "lines": 9,
+    "docstring": null,
+    "imports": [],
+    "classes": [],
+    "functions": [],
+    "constants": []
+  },
+  ".env.example": {
+    "path": ".env.example",
+    "lines": 19,
+    "docstring": null,
+    "imports": [],
+    "classes": [],
+    "functions": [],
+    "constants": []
+  },
+  "manage.py": {
+    "path": "manage.py",
+    "lines": 21,
+    "docstring": "Django's command-line utility for administrative tasks. (Architecture.md \u00a75)",
+    "imports": [
+      "sys",
+      "os",
+      "django.core.management.execute_from_command_line"
+    ],
+    "classes": [],
+    "functions": [
+      "main"
+    ],
+    "constants": []
+  },
+  "requirements.txt": {
+    "path": "requirements.txt",
+    "lines": 15,
+    "docstring": null,
+    "imports": [],
+    "classes": [],
+    "functions": [],
+    "constants": []
+  },
+  "test_platform_settings.py": {
+    "path": "test_platform_settings.py",
+    "lines": 146,
+    "docstring": "test_platform_settings.py \u2014 Test script for all 5 Global Platform Configuration & Maintenance settings.",
+    "imports": [
+      "rest_framework.test.APIClient",
+      "django.core.files.uploadedfile.SimpleUploadedFile",
+      "os",
+      "db.listings_repo",
+      "django",
+      "db.platform_settings_repo",
+      "apps.accounts.authentication._MongoUser"
+    ],
+    "classes": [],
+    "functions": [
+      "run_tests"
+    ],
+    "constants": []
+  },
+  "apps\\accounts\\authentication.py": {
+    "path": "apps\\accounts\\authentication.py",
+    "lines": 50,
+    "docstring": "apps/accounts/authentication.py \u2014 Custom JWT authentication backed by MongoDB.\n\nsimplejwt's default JWTAuthentication calls Django's ORM to look up the user.\nSince we have no ORM model (Architecture.md \u00a72 \u2014 PyMongo only), we override get_user()\nto fetch from MongoDB instead.\n\nThe JWT payload contains 'user_id' (the string form of MongoDB ObjectId).",
+    "imports": [
+      "rest_framework_simplejwt.exceptions.InvalidToken",
+      "rest_framework_simplejwt.exceptions.AuthenticationFailed",
+      "rest_framework_simplejwt.authentication.JWTAuthentication",
+      "db.users_repo"
+    ],
+    "classes": [
+      "_MongoUser",
+      "MongoJWTAuthentication"
+    ],
+    "functions": [
+      "__init__",
+      "__str__",
+      "get_user"
+    ],
+    "constants": []
+  },
+  "apps\\accounts\\permissions.py": {
+    "path": "apps\\accounts\\permissions.py",
+    "lines": 75,
+    "docstring": "apps/accounts/permissions.py \u2014 Role-based DRF permission classes (Architecture.md \u00a74.0, \u00a74.5, FR-4, FR-7)\n\nServer-side permission guards for role-specific routes.",
+    "imports": [
+      "rest_framework.permissions.BasePermission",
+      "apps.common.constants.UserRoles"
+    ],
+    "classes": [
+      "IsFindAccommodation",
+      "IsOwner",
+      "IsBroker",
+      "IsCompanyHR",
+      "IsAdmin",
+      "IsOwnerOrBroker"
+    ],
+    "functions": [
+      "has_permission",
+      "has_permission",
+      "has_permission",
+      "has_permission",
+      "has_permission",
+      "has_permission"
+    ],
+    "constants": []
+  },
+  "apps\\accounts\\repository.py": {
+    "path": "apps\\accounts\\repository.py",
+    "lines": 41,
+    "docstring": "apps/accounts/repository.py \u2014 Data repository layer for accounts app.\n\nWraps db.users_repo to isolate PyMongo database queries (Architecture.md \u00a72, database.md \u00a73.1).",
+    "imports": [
+      "typing.Optional",
+      "db.users_repo",
+      "typing.Any",
+      "typing.Dict"
+    ],
+    "classes": [],
+    "functions": [
+      "create_user_record",
+      "get_user_by_email",
+      "get_user_by_id",
+      "set_user_role",
+      "update_user_role_profile",
+      "update_user_password",
+      "delete_user_record"
+    ],
+    "constants": []
+  },
+  "apps\\accounts\\serializers.py": {
+    "path": "apps\\accounts\\serializers.py",
+    "lines": 101,
+    "docstring": "apps/accounts/serializers.py \u2014 DRF serializers for accounts (Architecture.md \u00a72, FR-1, FR-2)\nNOTE (FR-2): RoleSerializer's choices MUST exclude 'admin' from the public-facing PATCH /api/auth/role\nendpoint. This is a server-side enforcement, not just a UI omission \u2014 the serializer rejects 'admin'\neven if it is submitted directly via API call (e.g., by curl), satisfying FR-2 as a real control.",
+    "imports": [
+      "rest_framework.serializers"
+    ],
+    "classes": [
+      "RegisterSerializer",
+      "LoginSerializer",
+      "RoleSerializer",
+      "_CoordinatesSerializer",
+      "FindAccommodationProfileSerializer",
+      "PropertyOwnerProfileSerializer",
+      "BrokerProfileSerializer",
+      "CompanyHRProfileSerializer"
+    ],
+    "functions": [
+      "validate_email",
+      "validate",
+      "validate_email"
+    ],
+    "constants": [
+      "PROFILE_SERIALIZER_MAP",
+      "PUBLIC_ROLE_CHOICES"
+    ]
+  },
+  "apps\\accounts\\services.py": {
+    "path": "apps\\accounts\\services.py",
+    "lines": 141,
+    "docstring": "apps/accounts/services.py \u2014 Service layer for authentication and role management.\n\nContains business logic for user registration, authentication, role assignment, and onboarding profile updates.",
+    "imports": [
+      ".repository",
+      "rest_framework_simplejwt.tokens.RefreshToken",
+      "django.contrib.auth.hashers.make_password",
+      "typing.Any",
+      "pymongo.errors",
+      "typing.Dict",
+      "typing.Tuple",
+      "django.contrib.auth.hashers.check_password"
+    ],
+    "classes": [
+      "AccountServiceError",
+      "DuplicateEmailError",
+      "InvalidCredentialsError",
+      "RoleImmutableError"
+    ],
+    "functions": [
+      "issue_tokens",
+      "register_user",
+      "authenticate_user",
+      "assign_role",
+      "update_profile",
+      "change_password",
+      "delete_account",
+      "google_auth_user"
+    ],
+    "constants": []
+  },
+  "apps\\accounts\\urls.py": {
+    "path": "apps\\accounts\\urls.py",
+    "lines": 17,
+    "docstring": "apps/accounts/urls.py \u2014 URL patterns for accounts app (Architecture.md \u00a78)",
+    "imports": [
+      ".views",
+      "django.urls.path"
+    ],
+    "classes": [],
+    "functions": [],
+    "constants": []
+  },
+  "apps\\accounts\\views.py": {
+    "path": "apps\\accounts\\views.py",
+    "lines": 369,
+    "docstring": "apps/accounts/views.py \u2014 DRF views for auth, registration, role assignment (PRD \u00a76, Architecture.md \u00a74.0, FR-1, FR-2)",
+    "imports": [
+      "apps.commute.maps_client.clear_commute_cache",
+      "serializers.LoginSerializer",
+      "razorpay",
+      "rest_framework.views.APIView",
+      "serializers.PROFILE_SERIALIZER_MAP",
+      ".services",
+      "serializers.RegisterSerializer",
+      "rest_framework.permissions.IsAuthenticated",
+      "hashlib",
+      ".repository",
+      "rest_framework.permissions.AllowAny",
+      "apps.common.responses.api_response",
+      "rest_framework_simplejwt.tokens.RefreshToken",
+      "serializers.RoleSerializer",
+      "django.conf.settings",
+      "rest_framework.status",
+      "time",
+      "hmac",
+      "db.users_repo.unlock_feature"
+    ],
+    "classes": [
+      "RegisterView",
+      "LoginView",
+      "RefreshView",
+      "LogoutView",
+      "SetRoleView",
+      "ProfileView",
+      "RazorpayCreateOrderView",
+      "RazorpayVerifyPaymentView",
+      "GoogleAuthView",
+      "ChangePasswordView",
+      "DeleteAccountView"
+    ],
+    "functions": [
+      "post",
+      "post",
+      "post",
+      "post",
+      "patch",
+      "get",
+      "put",
+      "post",
+      "post",
+      "post",
+      "post",
+      "post"
+    ],
+    "constants": []
+  },
+  "apps\\accounts\\__init__.py": {
+    "path": "apps\\accounts\\__init__.py",
+    "lines": 1,
+    "docstring": "apps/accounts/__init__.py",
+    "imports": [],
+    "classes": [],
+    "functions": [],
+    "constants": []
+  },
+  "apps\\activity\\urls.py": {
+    "path": "apps\\activity\\urls.py",
+    "lines": 7,
+    "docstring": "apps/activity/urls.py \u2014 URL routes for activity app",
+    "imports": [
+      ".views",
+      "django.urls.path"
+    ],
+    "classes": [],
+    "functions": [],
+    "constants": []
+  },
+  "apps\\activity\\views.py": {
+    "path": "apps\\activity\\views.py",
+    "lines": 14,
+    "docstring": "apps/activity/views.py \u2014 DRF views for Activity Timeline & Audit Logs (Phase 13)",
+    "imports": [
+      "db.activity_repo",
+      "apps.common.responses.api_response",
+      "rest_framework.permissions.IsAuthenticated",
+      "rest_framework.views.APIView"
+    ],
+    "classes": [
+      "ActivityLogsView"
+    ],
+    "functions": [
+      "get"
+    ],
+    "constants": []
+  },
+  "apps\\activity\\__init__.py": {
+    "path": "apps\\activity\\__init__.py",
+    "lines": 1,
+    "docstring": "apps/activity/__init__.py",
+    "imports": [],
+    "classes": [],
+    "functions": [],
+    "constants": []
+  },
+  "apps\\admin_platform\\serializers.py": {
+    "path": "apps\\admin_platform\\serializers.py",
+    "lines": 17,
+    "docstring": "apps/admin_platform/serializers.py \u2014 DRF serializers for Super Admin Platform (Phase 14)",
+    "imports": [
+      "rest_framework.serializers"
+    ],
+    "classes": [
+      "BulkListingActionSerializer",
+      "UserStatusUpdateSerializer"
+    ],
+    "functions": [],
+    "constants": [
+      "STATUS_CHOICES",
+      "DECISION_CHOICES"
+    ]
+  },
+  "apps\\admin_platform\\urls.py": {
+    "path": "apps\\admin_platform\\urls.py",
+    "lines": 15,
+    "docstring": "apps/admin_platform/urls.py \u2014 URL patterns for Super Admin Platform",
+    "imports": [
+      ".views",
+      "django.urls.path"
+    ],
+    "classes": [],
+    "functions": [],
+    "constants": []
+  },
+  "apps\\admin_platform\\views.py": {
+    "path": "apps\\admin_platform\\views.py",
+    "lines": 191,
+    "docstring": "apps/admin_platform/views.py \u2014 DRF views for Super Admin Platform (Phase 14)",
+    "imports": [
+      "db.admin_platform_repo",
+      "django.http.HttpResponse",
+      "rest_framework.views.APIView",
+      "apps.accounts.permissions.IsAdmin",
+      "django.contrib.auth.hashers.make_password",
+      "rest_framework.status",
+      "apps.common.responses.api_response",
+      "csv",
+      "db.listings_repo",
+      "db.audit_repo",
+      "serializers.UserStatusUpdateSerializer",
+      "io.StringIO",
+      "db.users_repo",
+      "serializers.BulkListingActionSerializer"
+    ],
+    "classes": [
+      "AdminDashboardView",
+      "AdminUsersView",
+      "AdminUserDetailView",
+      "AdminListingsView",
+      "AdminListingBulkView",
+      "AdminBrokersView",
+      "AdminCompaniesView",
+      "AdminAIMonitoringView",
+      "AdminAnalyticsExportView"
+    ],
+    "functions": [
+      "get",
+      "get",
+      "post",
+      "patch",
+      "delete",
+      "get",
+      "post",
+      "get",
+      "get",
+      "get",
+      "get"
+    ],
+    "constants": []
+  },
+  "apps\\admin_platform\\__init__.py": {
+    "path": "apps\\admin_platform\\__init__.py",
+    "lines": 1,
+    "docstring": "apps/admin_platform/__init__.py",
+    "imports": [],
+    "classes": [],
+    "functions": [],
+    "constants": []
+  },
+  "apps\\admin_review\\serializers.py": {
+    "path": "apps\\admin_review\\serializers.py",
+    "lines": 16,
+    "docstring": "apps/admin_review/serializers.py \u2014 DRF serializers for Admin review actions (FR-4, FR-5)",
+    "imports": [
+      "rest_framework.serializers"
+    ],
+    "classes": [
+      "ReviewActionSerializer"
+    ],
+    "functions": [
+      "validate"
+    ],
+    "constants": [
+      "DECISION_CHOICES"
+    ]
+  },
+  "apps\\admin_review\\urls.py": {
+    "path": "apps\\admin_review\\urls.py",
+    "lines": 8,
+    "docstring": "apps/admin_review/urls.py \u2014 URL patterns for admin_review app (Architecture.md \u00a78)",
+    "imports": [
+      ".views",
+      "django.urls.path"
+    ],
+    "classes": [],
+    "functions": [],
+    "constants": []
+  },
+  "apps\\admin_review\\views.py": {
+    "path": "apps\\admin_review\\views.py",
+    "lines": 36,
+    "docstring": "apps/admin_review/views.py \u2014 Admin listing approval queue (Architecture.md \u00a74.5, FR-4, FR-5)",
+    "imports": [
+      "rest_framework.views.APIView",
+      "apps.accounts.permissions.IsAdmin",
+      "apps.common.responses.api_response",
+      "rest_framework.status",
+      "db.listings_repo",
+      "serializers.ReviewActionSerializer"
+    ],
+    "classes": [
+      "ReviewQueueView",
+      "ReviewActionView"
+    ],
+    "functions": [
+      "get",
+      "patch"
+    ],
+    "constants": []
+  },
+  "apps\\admin_review\\__init__.py": {
+    "path": "apps\\admin_review\\__init__.py",
+    "lines": 1,
+    "docstring": "apps/admin_review/__init__.py",
+    "imports": [],
+    "classes": [],
+    "functions": [],
+    "constants": []
+  },
+  "apps\\assistant\\context_builder.py": {
+    "path": "apps\\assistant\\context_builder.py",
+    "lines": 48,
+    "docstring": "apps/assistant/context_builder.py \u2014 Assembles grounded context from MongoDB data for Gemini (Architecture.md \u00a73, \u00a77)",
+    "imports": [
+      "db.listings_repo",
+      "db.users_repo"
+    ],
+    "classes": [],
+    "functions": [
+      "sanitize_input",
+      "build_context"
+    ],
+    "constants": []
+  },
+  "apps\\assistant\\gemini_client.py": {
+    "path": "apps\\assistant\\gemini_client.py",
+    "lines": 84,
+    "docstring": "apps/assistant/gemini_client.py \u2014 Wrapper around Groq API with strict MoveSmart domain boundaries.",
+    "imports": [
+      "django.conf.settings",
+      "logging",
+      "urllib.request",
+      "json"
+    ],
+    "classes": [
+      "GeminiRateLimitError",
+      "GeminiAPIError"
+    ],
+    "functions": [
+      "call_gemini",
+      "generate_domain_fallback"
+    ],
+    "constants": [
+      "STRICT_MOVESMART_SYSTEM_PROMPT"
+    ]
+  },
+  "apps\\assistant\\serializers.py": {
+    "path": "apps\\assistant\\serializers.py",
+    "lines": 7,
+    "docstring": "apps/assistant/serializers.py \u2014 DRF serializers for AI assistant.",
+    "imports": [
+      "rest_framework.serializers"
+    ],
+    "classes": [
+      "ChatSerializer"
+    ],
+    "functions": [],
+    "constants": []
+  },
+  "apps\\assistant\\urls.py": {
+    "path": "apps\\assistant\\urls.py",
+    "lines": 7,
+    "docstring": "apps/assistant/urls.py \u2014 URL patterns for assistant app (Architecture.md \u00a78)",
+    "imports": [
+      ".views",
+      "django.urls.path"
+    ],
+    "classes": [],
+    "functions": [],
+    "constants": []
+  },
+  "apps\\assistant\\views.py": {
+    "path": "apps\\assistant\\views.py",
+    "lines": 56,
+    "docstring": "apps/assistant/views.py \u2014 DRF view for AI assistant chat (Architecture.md \u00a74.1, \u00a77, Rules.md \u00a74, \u00a75)",
+    "imports": [
+      "gemini_client.GeminiAPIError",
+      "rest_framework.views.APIView",
+      "gemini_client.GeminiRateLimitError",
+      "apps.common.responses.api_response",
+      "rest_framework.status",
+      "rest_framework.permissions.IsAuthenticated",
+      "gemini_client.call_gemini",
+      "db.platform_settings_repo",
+      "serializers.ChatSerializer",
+      "context_builder.build_context"
+    ],
+    "classes": [
+      "AssistantChatView"
+    ],
+    "functions": [
+      "post"
+    ],
+    "constants": []
+  },
+  "apps\\assistant\\__init__.py": {
+    "path": "apps\\assistant\\__init__.py",
+    "lines": 1,
+    "docstring": "apps/assistant/__init__.py",
+    "imports": [],
+    "classes": [],
+    "functions": [],
+    "constants": []
+  },
+  "apps\\audit\\urls.py": {
+    "path": "apps\\audit\\urls.py",
+    "lines": 7,
+    "docstring": "apps/audit/urls.py \u2014 URL routes for audit app",
+    "imports": [
+      ".views",
+      "django.urls.path"
+    ],
+    "classes": [],
+    "functions": [],
+    "constants": []
+  },
+  "apps\\audit\\views.py": {
+    "path": "apps\\audit\\views.py",
+    "lines": 15,
+    "docstring": "apps/audit/views.py \u2014 DRF views for Audit Logs (Phase 14)",
+    "imports": [
+      "apps.accounts.permissions.IsAdmin",
+      "apps.common.responses.api_response",
+      "db.audit_repo",
+      "rest_framework.views.APIView"
+    ],
+    "classes": [
+      "AuditLogsView"
+    ],
+    "functions": [
+      "get"
+    ],
+    "constants": []
+  },
+  "apps\\audit\\__init__.py": {
+    "path": "apps\\audit\\__init__.py",
+    "lines": 1,
+    "docstring": "apps/audit/__init__.py",
+    "imports": [],
+    "classes": [],
+    "functions": [],
+    "constants": []
+  },
+  "apps\\calendar\\serializers.py": {
+    "path": "apps\\calendar\\serializers.py",
+    "lines": 15,
+    "docstring": "apps/calendar/serializers.py \u2014 DRF serializers for universal calendar (Phase 13)",
+    "imports": [
+      "rest_framework.serializers"
+    ],
+    "classes": [
+      "CalendarEventCreateSerializer"
+    ],
+    "functions": [],
+    "constants": [
+      "EVENT_TYPE_CHOICES"
+    ]
+  },
+  "apps\\calendar\\urls.py": {
+    "path": "apps\\calendar\\urls.py",
+    "lines": 8,
+    "docstring": "apps/calendar/urls.py \u2014 URL routes for calendar app",
+    "imports": [
+      ".views",
+      "django.urls.path"
+    ],
+    "classes": [],
+    "functions": [],
+    "constants": []
+  },
+  "apps\\calendar\\views.py": {
+    "path": "apps\\calendar\\views.py",
+    "lines": 42,
+    "docstring": "apps/calendar/views.py \u2014 DRF views for Universal Calendar (Phase 13)",
+    "imports": [
+      "db.calendar_repo",
+      "rest_framework.views.APIView",
+      "serializers.CalendarEventCreateSerializer",
+      "apps.common.responses.api_response",
+      "rest_framework.status",
+      "rest_framework.permissions.IsAuthenticated"
+    ],
+    "classes": [
+      "CalendarEventsView",
+      "CalendarEventDetailView"
+    ],
+    "functions": [
+      "get",
+      "post",
+      "delete"
+    ],
+    "constants": []
+  },
+  "apps\\calendar\\__init__.py": {
+    "path": "apps\\calendar\\__init__.py",
+    "lines": 1,
+    "docstring": "apps/calendar/__init__.py",
+    "imports": [],
+    "classes": [],
+    "functions": [],
+    "constants": []
+  },
+  "apps\\cms\\urls.py": {
+    "path": "apps\\cms\\urls.py",
+    "lines": 7,
+    "docstring": "apps/cms/urls.py \u2014 URL routes for CMS Content Manager",
+    "imports": [
+      ".views",
+      "django.urls.path"
+    ],
+    "classes": [],
+    "functions": [],
+    "constants": []
+  },
+  "apps\\cms\\views.py": {
+    "path": "apps\\cms\\views.py",
+    "lines": 31,
+    "docstring": "apps/cms/views.py \u2014 DRF views for CMS Content Manager (Phase 14)",
+    "imports": [
+      "rest_framework.views.APIView",
+      "apps.accounts.permissions.IsAdmin",
+      "db.cms_repo",
+      "apps.common.responses.api_response",
+      "rest_framework.status",
+      "db.audit_repo"
+    ],
+    "classes": [
+      "CMSPageView"
+    ],
+    "functions": [
+      "get",
+      "put"
+    ],
+    "constants": []
+  },
+  "apps\\cms\\__init__.py": {
+    "path": "apps\\cms\\__init__.py",
+    "lines": 1,
+    "docstring": "apps/cms/__init__.py",
+    "imports": [],
+    "classes": [],
+    "functions": [],
+    "constants": []
+  },
+  "apps\\common\\constants.py": {
+    "path": "apps\\common\\constants.py",
+    "lines": 44,
+    "docstring": "apps/common/constants.py \u2014 System wide constants and enums derived from Architecture.md & database.md.",
+    "imports": [],
+    "classes": [
+      "UserRoles",
+      "ListingStatus",
+      "DealType",
+      "LeadStatus",
+      "RelocationBatchStatus"
+    ],
+    "functions": [],
+    "constants": [
+      "BROKER",
+      "FIND_ACCOMMODATION",
+      "ADMIN",
+      "OPEN",
+      "BUY",
+      "NEW",
+      "REJECTED",
+      "PENDING_REVIEW",
+      "IN_PROGRESS",
+      "LOST",
+      "PROPERTY_OWNER",
+      "ALL",
+      "APPROVED",
+      "COMPLETED",
+      "COMPANY_HR",
+      "CONTACTED",
+      "PUBLIC_ROLES",
+      "RENT",
+      "CONVERTED"
+    ]
+  },
+  "apps\\common\\exceptions.py": {
+    "path": "apps\\common\\exceptions.py",
+    "lines": 39,
+    "docstring": "apps/common/exceptions.py \u2014 Custom DRF exception handler for standardized error output.",
+    "imports": [
+      "rest_framework.views.exception_handler",
+      "rest_framework.response.Response",
+      "rest_framework.status",
+      "logging"
+    ],
+    "classes": [],
+    "functions": [
+      "custom_exception_handler"
+    ],
+    "constants": []
+  },
+  "apps\\common\\responses.py": {
+    "path": "apps\\common\\responses.py",
+    "lines": 35,
+    "docstring": "apps/common/responses.py \u2014 Standardized REST API response wrapper.",
+    "imports": [
+      "typing.Optional",
+      "rest_framework.response.Response",
+      "rest_framework.status",
+      "typing.Any",
+      "typing.Dict"
+    ],
+    "classes": [],
+    "functions": [
+      "api_response"
+    ],
+    "constants": []
+  },
+  "apps\\common\\validators.py": {
+    "path": "apps\\common\\validators.py",
+    "lines": 36,
+    "docstring": "apps/common/validators.py \u2014 Generic validation functions.",
+    "imports": [
+      "typing.Optional",
+      "re",
+      "typing.Any",
+      "typing.Dict",
+      "typing.Tuple"
+    ],
+    "classes": [],
+    "functions": [
+      "validate_email",
+      "validate_coordinates",
+      "validate_non_negative_number"
+    ],
+    "constants": []
+  },
+  "apps\\common\\views.py": {
+    "path": "apps\\common\\views.py",
+    "lines": 39,
+    "docstring": "apps/common/views.py \u2014 Health check and common endpoints (Architecture.md \u00a74, \u00a78)",
+    "imports": [
+      "db.connection.get_db",
+      "ml.suspicious_listing.model",
+      "rest_framework.permissions.AllowAny",
+      "rest_framework.views.APIView",
+      "rest_framework.status",
+      "apps.common.responses.api_response",
+      "ml.rent_prediction.model"
+    ],
+    "classes": [
+      "HealthCheckView"
+    ],
+    "functions": [
+      "get"
+    ],
+    "constants": []
+  },
+  "apps\\common\\__init__.py": {
+    "path": "apps\\common\\__init__.py",
+    "lines": 1,
+    "docstring": "Common shared utilities, response formatters, exceptions, and constants.",
+    "imports": [],
+    "classes": [],
+    "functions": [],
+    "constants": []
+  },
+  "apps\\commute\\maps_client.py": {
+    "path": "apps\\commute\\maps_client.py",
+    "lines": 348,
+    "docstring": "apps/commute/maps_client.py \u2014 Zero-Latency Dynamic Commute Engine & Instant Coordinate Resolver",
+    "imports": [
+      "django.conf.settings",
+      "typing.Any",
+      "requests",
+      "math",
+      "logging"
+    ],
+    "classes": [
+      "CommuteAPIError"
+    ],
+    "functions": [
+      "_map_mode",
+      "_haversine_distance_km",
+      "_resolve_coords",
+      "_compute_dynamic_fallback",
+      "get_batch_commute_estimates",
+      "clear_commute_cache",
+      "get_commute_estimate"
+    ],
+    "constants": [
+      "R",
+      "AHMEDABAD_COORDS"
+    ]
+  },
+  "apps\\commute\\urls.py": {
+    "path": "apps\\commute\\urls.py",
+    "lines": 7,
+    "docstring": "apps/commute/urls.py \u2014 URL patterns for commute app (Architecture.md \u00a78)",
+    "imports": [
+      ".views",
+      "django.urls.path"
+    ],
+    "classes": [],
+    "functions": [],
+    "constants": []
+  },
+  "apps\\commute\\views.py": {
+    "path": "apps\\commute\\views.py",
+    "lines": 39,
+    "docstring": "apps/commute/views.py \u2014 DRF view for commute estimation (Architecture.md \u00a74.1, PRD \u00a77.1)",
+    "imports": [
+      "db.commute_cache_repo",
+      "maps_client.CommuteAPIError",
+      "rest_framework.views.APIView",
+      "rest_framework.status",
+      "datetime.timedelta",
+      "rest_framework.permissions.IsAuthenticated",
+      "apps.common.responses.api_response",
+      "maps_client.get_commute_estimate",
+      "datetime.timezone",
+      "datetime.datetime"
+    ],
+    "classes": [
+      "CommuteView"
+    ],
+    "functions": [
+      "get"
+    ],
+    "constants": []
+  },
+  "apps\\commute\\__init__.py": {
+    "path": "apps\\commute\\__init__.py",
+    "lines": 1,
+    "docstring": "apps/commute/__init__.py",
+    "imports": [],
+    "classes": [],
+    "functions": [],
+    "constants": []
+  },
+  "apps\\company\\serializers.py": {
+    "path": "apps\\company\\serializers.py",
+    "lines": 79,
+    "docstring": "apps/company/serializers.py \u2014 DRF serializers for Company/HR relocation (database.md \u00a73.6, Phase 12)",
+    "imports": [
+      "rest_framework.serializers"
+    ],
+    "classes": [
+      "CompanyProfileSerializer",
+      "RelocationBatchCreateSerializer",
+      "EmployeeAddSerializer",
+      "AllocationCreateSerializer",
+      "BrokerAssignmentCreateSerializer",
+      "ApprovalCreateSerializer",
+      "ApprovalUpdateSerializer",
+      "ExpenseCreateSerializer"
+    ],
+    "functions": [],
+    "constants": [
+      "APPROVAL_TYPE_CHOICES",
+      "APPROVAL_STATUS_CHOICES",
+      "BATCH_STATUS_CHOICES",
+      "EXPENSE_CATEGORY_CHOICES",
+      "RELOCATION_STATUS_CHOICES"
+    ]
+  },
+  "apps\\company\\services.py": {
+    "path": "apps\\company\\services.py",
+    "lines": 69,
+    "docstring": "apps/company/services.py \u2014 Service layer for Company HR Enterprise module (Architecture.md \u00a74.4, Phase 12)",
+    "imports": [
+      "db.employees_repo",
+      "db.broker_assignments_repo",
+      "db.expenses_repo",
+      "db.company_reports_repo",
+      "db.approvals_repo",
+      "typing.Any",
+      "typing.Dict",
+      "db.users_repo",
+      "db.relocation_batches_repo"
+    ],
+    "classes": [],
+    "functions": [
+      "get_enterprise_dashboard_summary"
+    ],
+    "constants": []
+  },
+  "apps\\company\\urls.py": {
+    "path": "apps\\company\\urls.py",
+    "lines": 28,
+    "docstring": "apps/company/urls.py \u2014 URL patterns for company app (Architecture.md \u00a78, Phase 12)",
+    "imports": [
+      ".views",
+      "django.urls.path"
+    ],
+    "classes": [],
+    "functions": [],
+    "constants": []
+  },
+  "apps\\company\\views.py": {
+    "path": "apps\\company\\views.py",
+    "lines": 499,
+    "docstring": "apps/company/views.py \u2014 DRF views for Company/HR relocation & Enterprise Platform (Architecture.md \u00a74.4, Phase 12)",
+    "imports": [
+      "services.get_enterprise_dashboard_summary",
+      "db.broker_assignments_repo",
+      "rest_framework.views.APIView",
+      "db.listings_repo",
+      "serializers.ExpenseCreateSerializer",
+      "io.StringIO",
+      "serializers.ApprovalCreateSerializer",
+      "db.company_reports_repo",
+      "serializers.CompanyProfileSerializer",
+      "db.approvals_repo",
+      "db.users_repo",
+      "apps.accounts.permissions.IsCompanyHR",
+      "serializers.EmployeeAddSerializer",
+      "db.employees_repo",
+      "db.expenses_repo",
+      "apps.recommendations.scoring",
+      "django.http.HttpResponse",
+      "apps.common.responses.api_response",
+      "csv",
+      "serializers.RelocationBatchCreateSerializer",
+      "db.relocation_batches_repo",
+      "serializers.BrokerAssignmentCreateSerializer",
+      "rest_framework.status",
+      "serializers.ApprovalUpdateSerializer",
+      "serializers.AllocationCreateSerializer"
+    ],
+    "classes": [
+      "CompanyDashboardView",
+      "CompanyProfileView",
+      "EmployeesView",
+      "EmployeeDetailView",
+      "BrokerAssignmentsView",
+      "BrokerAssignmentDetailView",
+      "ApprovalsView",
+      "ApprovalDetailView",
+      "ExpensesView",
+      "ExpenseDetailView",
+      "CompanyReportsView",
+      "CompanyReportExportView",
+      "AIEnterpriseAssistantView",
+      "RelocationBatchesView",
+      "RelocationBatchDetailView",
+      "BatchEmployeesView",
+      "BatchEmployeeDetailView",
+      "BatchSearchView",
+      "BatchAllocateView",
+      "BatchReportView"
+    ],
+    "functions": [
+      "get",
+      "post",
+      "get",
+      "post",
+      "get",
+      "put",
+      "delete",
+      "get",
+      "post",
+      "patch",
+      "get",
+      "post",
+      "patch",
+      "get",
+      "post",
+      "delete",
+      "get",
+      "get",
+      "post",
+      "get",
+      "post",
+      "get",
+      "put",
+      "delete",
+      "post",
+      "delete",
+      "post",
+      "post",
+      "get"
+    ],
+    "constants": []
+  },
+  "apps\\company\\__init__.py": {
+    "path": "apps\\company\\__init__.py",
+    "lines": 1,
+    "docstring": "apps/company/__init__.py",
+    "imports": [],
+    "classes": [],
+    "functions": [],
+    "constants": []
+  },
+  "apps\\cost_of_living\\estimator.py": {
+    "path": "apps\\cost_of_living\\estimator.py",
+    "lines": 203,
+    "docstring": "apps/cost_of_living/estimator.py \u2014 Ground-reality cost-of-living estimation engine for Ahmedabad & Gandhinagar",
+    "imports": [
+      "statistics",
+      "db.connection.get_db",
+      "typing.List",
+      "typing.Any",
+      "typing.Dict",
+      "logging"
+    ],
+    "classes": [],
+    "functions": [
+      "estimate_cost_of_living",
+      "_get_locality_rent_stats"
+    ],
+    "constants": [
+      "LOCALITY_BENCHMARKS"
+    ]
+  },
+  "apps\\cost_of_living\\urls.py": {
+    "path": "apps\\cost_of_living\\urls.py",
+    "lines": 7,
+    "docstring": "apps/cost_of_living/urls.py \u2014 URL patterns for cost_of_living app (Architecture.md \u00a78)",
+    "imports": [
+      ".views",
+      "django.urls.path"
+    ],
+    "classes": [],
+    "functions": [],
+    "constants": []
+  },
+  "apps\\cost_of_living\\views.py": {
+    "path": "apps\\cost_of_living\\views.py",
+    "lines": 35,
+    "docstring": "apps/cost_of_living/views.py \u2014 DRF view for cost-of-living breakdown (Architecture.md \u00a74.1, PRD \u00a77.1)",
+    "imports": [
+      "estimator.estimate_cost_of_living",
+      "rest_framework.views.APIView",
+      "apps.common.responses.api_response",
+      "rest_framework.status",
+      "rest_framework.permissions.IsAuthenticated"
+    ],
+    "classes": [
+      "CostOfLivingView"
+    ],
+    "functions": [
+      "get"
+    ],
+    "constants": []
+  },
+  "apps\\cost_of_living\\__init__.py": {
+    "path": "apps\\cost_of_living\\__init__.py",
+    "lines": 1,
+    "docstring": "apps/cost_of_living/__init__.py",
+    "imports": [],
+    "classes": [],
+    "functions": [],
+    "constants": []
+  },
+  "apps\\enquiries\\serializers.py": {
+    "path": "apps\\enquiries\\serializers.py",
+    "lines": 8,
+    "docstring": "apps/enquiries/serializers.py \u2014 DRF serializers for enquiries (database.md \u00a73.4)",
+    "imports": [
+      "rest_framework.serializers"
+    ],
+    "classes": [
+      "EnquiryCreateSerializer"
+    ],
+    "functions": [],
+    "constants": []
+  },
+  "apps\\enquiries\\urls.py": {
+    "path": "apps\\enquiries\\urls.py",
+    "lines": 7,
+    "docstring": "apps/enquiries/urls.py \u2014 URL patterns for enquiries app (Architecture.md \u00a78)",
+    "imports": [
+      ".views",
+      "django.urls.path"
+    ],
+    "classes": [],
+    "functions": [],
+    "constants": []
+  },
+  "apps\\enquiries\\views.py": {
+    "path": "apps\\enquiries\\views.py",
+    "lines": 74,
+    "docstring": "apps/enquiries/views.py \u2014 DRF views for structured enquiries (Architecture.md \u00a74.1/\u00a74.2, PRD \u00a77.1)",
+    "imports": [
+      "db.enquiries_repo",
+      "db.messages_repo",
+      "rest_framework.views.APIView",
+      "serializers.EnquiryCreateSerializer",
+      "apps.common.responses.api_response",
+      "rest_framework.status",
+      "rest_framework.permissions.IsAuthenticated",
+      "db.listings_repo",
+      "db.leads_repo"
+    ],
+    "classes": [
+      "EnquiriesView"
+    ],
+    "functions": [
+      "post",
+      "get"
+    ],
+    "constants": []
+  },
+  "apps\\enquiries\\__init__.py": {
+    "path": "apps\\enquiries\\__init__.py",
+    "lines": 1,
+    "docstring": "apps/enquiries/__init__.py",
+    "imports": [],
+    "classes": [],
+    "functions": [],
+    "constants": []
+  },
+  "apps\\listings\\serializers.py": {
+    "path": "apps\\listings\\serializers.py",
+    "lines": 73,
+    "docstring": "apps/listings/serializers.py \u2014 DRF serializers for listings (Architecture.md \u00a72, FR-3, FR-5)",
+    "imports": [
+      "rest_framework.serializers"
+    ],
+    "classes": [
+      "ListingCreateSerializer",
+      "ListingUpdateSerializer",
+      "ListingResponseSerializer"
+    ],
+    "functions": [],
+    "constants": [
+      "DEAL_TYPE_CHOICES",
+      "LISTING_STATUS_CHOICES"
+    ]
+  },
+  "apps\\listings\\urls.py": {
+    "path": "apps\\listings\\urls.py",
+    "lines": 15,
+    "docstring": "apps/listings/urls.py \u2014 URL patterns for listings app (Architecture.md \u00a78)",
+    "imports": [
+      ".views",
+      "django.urls.path"
+    ],
+    "classes": [],
+    "functions": [],
+    "constants": []
+  },
+  "apps\\listings\\views.py": {
+    "path": "apps\\listings\\views.py",
+    "lines": 394,
+    "docstring": "apps/listings/views.py \u2014 DRF views for listings browse, create, manage, ML predictions (Architecture.md \u00a74.1\u2013\u00a74.3, FR-3, FR-7)",
+    "imports": [
+      "serializers.ListingCreateSerializer",
+      "cloudinary",
+      "ml.suspicious_listing.model",
+      "rest_framework.views.APIView",
+      "os",
+      "db.listings_repo",
+      "db.platform_settings_repo",
+      "django.core.files.storage.default_storage",
+      "serializers.ListingUpdateSerializer",
+      "rest_framework.permissions.IsAuthenticated",
+      "ml.rent_prediction.model",
+      "db.saved_items_repo",
+      "rest_framework.permissions.AllowAny",
+      "apps.common.responses.api_response",
+      "apps.common.constants.UserRoles",
+      "cloudinary.uploader",
+      "django.conf.settings",
+      "rest_framework.status",
+      "apps.accounts.permissions.IsOwnerOrBroker",
+      "logging",
+      "uuid"
+    ],
+    "classes": [
+      "ListingsView",
+      "MyListingsView",
+      "ListingDetailView",
+      "RentPredictionView",
+      "TrustScoreView",
+      "ListingAnalyticsView",
+      "SavedListingsView",
+      "SavedListingDetailView",
+      "ImageUploadView"
+    ],
+    "functions": [
+      "get_permissions",
+      "get",
+      "post",
+      "get",
+      "get_permissions",
+      "get",
+      "put",
+      "delete",
+      "get",
+      "get",
+      "get",
+      "post",
+      "get",
+      "delete",
+      "post"
+    ],
+    "constants": []
+  },
+  "apps\\listings\\__init__.py": {
+    "path": "apps\\listings\\__init__.py",
+    "lines": 1,
+    "docstring": "apps/listings/__init__.py",
+    "imports": [],
+    "classes": [],
+    "functions": [],
+    "constants": []
+  },
+  "apps\\messages\\apps.py": {
+    "path": "apps\\messages\\apps.py",
+    "lines": 7,
+    "docstring": "apps/messages/apps.py \u2014 AppConfig with unique label to avoid clash with django.contrib.messages",
+    "imports": [
+      "django.apps.AppConfig"
+    ],
+    "classes": [
+      "UserMessagesConfig"
+    ],
+    "functions": [],
+    "constants": []
+  },
+  "apps\\messages\\serializers.py": {
+    "path": "apps\\messages\\serializers.py",
+    "lines": 16,
+    "docstring": "apps/messages/serializers.py \u2014 DRF serializers for user-to-user messaging",
+    "imports": [
+      "rest_framework.serializers"
+    ],
+    "classes": [
+      "ConversationCreateSerializer",
+      "MessageAddSerializer"
+    ],
+    "functions": [],
+    "constants": []
+  },
+  "apps\\messages\\urls.py": {
+    "path": "apps\\messages\\urls.py",
+    "lines": 9,
+    "docstring": "apps/messages/urls.py \u2014 URL pattern routes for messaging app",
+    "imports": [
+      ".views",
+      "django.urls.path"
+    ],
+    "classes": [],
+    "functions": [],
+    "constants": []
+  },
+  "apps\\messages\\views.py": {
+    "path": "apps\\messages\\views.py",
+    "lines": 83,
+    "docstring": "apps/messages/views.py \u2014 DRF views for user messaging and inbox",
+    "imports": [
+      "rest_framework.views.APIView",
+      "serializers.ConversationCreateSerializer",
+      "apps.common.responses.api_response",
+      "rest_framework.status",
+      "rest_framework.permissions.IsAuthenticated",
+      "serializers.MessageAddSerializer",
+      "db.messages_repo"
+    ],
+    "classes": [
+      "ConversationsView",
+      "ConversationDetailView",
+      "ConversationMessagesView"
+    ],
+    "functions": [
+      "get",
+      "post",
+      "get",
+      "delete",
+      "post"
+    ],
+    "constants": []
+  },
+  "apps\\messages\\__init__.py": {
+    "path": "apps\\messages\\__init__.py",
+    "lines": 2,
+    "docstring": "apps/messages/__init__.py",
+    "imports": [],
+    "classes": [],
+    "functions": [],
+    "constants": []
+  },
+  "apps\\notifications\\serializers.py": {
+    "path": "apps\\notifications\\serializers.py",
+    "lines": 16,
+    "docstring": "apps/notifications/serializers.py \u2014 DRF serializers for notifications (Phase 13)",
+    "imports": [
+      "rest_framework.serializers"
+    ],
+    "classes": [
+      "NotificationCreateSerializer"
+    ],
+    "functions": [],
+    "constants": [
+      "NOTIFICATION_TYPES",
+      "PRIORITY_CHOICES"
+    ]
+  },
+  "apps\\notifications\\urls.py": {
+    "path": "apps\\notifications\\urls.py",
+    "lines": 10,
+    "docstring": "apps/notifications/urls.py \u2014 URL routes for notifications app",
+    "imports": [
+      ".views",
+      "django.urls.path"
+    ],
+    "classes": [],
+    "functions": [],
+    "constants": []
+  },
+  "apps\\notifications\\views.py": {
+    "path": "apps\\notifications\\views.py",
+    "lines": 69,
+    "docstring": "apps/notifications/views.py \u2014 DRF views for Notification Center (Phase 13)",
+    "imports": [
+      "serializers.NotificationCreateSerializer",
+      "rest_framework.views.APIView",
+      "apps.common.responses.api_response",
+      "rest_framework.status",
+      "rest_framework.permissions.IsAuthenticated",
+      "db.notifications_repo"
+    ],
+    "classes": [
+      "NotificationsView",
+      "NotificationReadView",
+      "NotificationMarkAllReadView",
+      "NotificationDetailView"
+    ],
+    "functions": [
+      "get",
+      "post",
+      "patch",
+      "post",
+      "delete"
+    ],
+    "constants": []
+  },
+  "apps\\notifications\\__init__.py": {
+    "path": "apps\\notifications\\__init__.py",
+    "lines": 1,
+    "docstring": "apps/notifications/__init__.py",
+    "imports": [],
+    "classes": [],
+    "functions": [],
+    "constants": []
+  },
+  "apps\\platform\\urls.py": {
+    "path": "apps\\platform\\urls.py",
+    "lines": 11,
+    "docstring": "apps/platform/urls.py \u2014 URL routes for platform settings & feedback",
+    "imports": [
+      ".views",
+      "django.urls.path"
+    ],
+    "classes": [],
+    "functions": [],
+    "constants": []
+  },
+  "apps\\platform\\views.py": {
+    "path": "apps\\platform\\views.py",
+    "lines": 87,
+    "docstring": "apps/platform/views.py \u2014 DRF views for Platform Settings & Feedback Center (Phase 14)",
+    "imports": [
+      "rest_framework.permissions.AllowAny",
+      "rest_framework.views.APIView",
+      "apps.accounts.permissions.IsAdmin",
+      "db.feedback_repo",
+      "rest_framework.status",
+      "apps.common.responses.api_response",
+      "rest_framework.permissions.IsAuthenticated",
+      "db.audit_repo",
+      "db.platform_settings_repo"
+    ],
+    "classes": [
+      "PlatformSettingsView",
+      "PublicPlatformSettingsView",
+      "FeedbackListView",
+      "FeedbackDetailView"
+    ],
+    "functions": [
+      "get",
+      "put",
+      "get",
+      "get_permissions",
+      "get",
+      "post",
+      "patch"
+    ],
+    "constants": []
+  },
+  "apps\\platform\\__init__.py": {
+    "path": "apps\\platform\\__init__.py",
+    "lines": 1,
+    "docstring": "apps/platform/__init__.py",
+    "imports": [],
+    "classes": [],
+    "functions": [],
+    "constants": []
+  },
+  "apps\\recommendations\\ranking.py": {
+    "path": "apps\\recommendations\\ranking.py",
+    "lines": 27,
+    "docstring": "apps/recommendations/ranking.py \u2014 Rule-based property ranking within a selected locality (Architecture.md \u00a77)",
+    "imports": [
+      "typing.List",
+      "typing.Any",
+      "typing.Dict"
+    ],
+    "classes": [],
+    "functions": [
+      "rank_listings"
+    ],
+    "constants": []
+  },
+  "apps\\recommendations\\scoring.py": {
+    "path": "apps\\recommendations\\scoring.py",
+    "lines": 186,
+    "docstring": "apps/recommendations/scoring.py \u2014 Dynamic Locality & Area Recommendation Scoring Engine",
+    "imports": [
+      "apps.commute.maps_client.clear_commute_cache",
+      "apps.commute.maps_client.get_commute_estimate",
+      "apps.commute.maps_client.get_batch_commute_estimates",
+      "typing.List",
+      "typing.Any",
+      "typing.Dict"
+    ],
+    "classes": [],
+    "functions": [
+      "score_localities",
+      "_score_residential",
+      "_score_business",
+      "_score_lifestyle",
+      "_score_transit",
+      "rank_properties_for_batch"
+    ],
+    "constants": [
+      "AHMEDABAD_LOCALITIES_KNOWLEDGE"
+    ]
+  },
+  "apps\\recommendations\\urls.py": {
+    "path": "apps\\recommendations\\urls.py",
+    "lines": 7,
+    "docstring": "apps/recommendations/urls.py \u2014 URL patterns for recommendations app (Architecture.md \u00a78)",
+    "imports": [
+      ".views",
+      "django.urls.path"
+    ],
+    "classes": [],
+    "functions": [],
+    "constants": []
+  },
+  "apps\\recommendations\\views.py": {
+    "path": "apps\\recommendations\\views.py",
+    "lines": 44,
+    "docstring": "apps/recommendations/views.py \u2014 DRF views for area and property recommendations (Architecture.md \u00a74.1, \u00a77, FR-8)",
+    "imports": [
+      "scoring.score_localities",
+      "ranking.rank_listings",
+      "rest_framework.views.APIView",
+      "apps.common.responses.api_response",
+      "rest_framework.status",
+      "rest_framework.permissions.IsAuthenticated",
+      "db.listings_repo",
+      "apps.accounts.repository"
+    ],
+    "classes": [
+      "AreaRecommendationsView"
+    ],
+    "functions": [
+      "post"
+    ],
+    "constants": []
+  },
+  "apps\\recommendations\\__init__.py": {
+    "path": "apps\\recommendations\\__init__.py",
+    "lines": 1,
+    "docstring": "apps/recommendations/__init__.py",
+    "imports": [],
+    "classes": [],
+    "functions": [],
+    "constants": []
+  },
+  "apps\\reports\\urls.py": {
+    "path": "apps\\reports\\urls.py",
+    "lines": 8,
+    "docstring": "apps/reports/urls.py \u2014 URL routes for reports app",
+    "imports": [
+      ".views",
+      "django.urls.path"
+    ],
+    "classes": [],
+    "functions": [],
+    "constants": []
+  },
+  "apps\\reports\\views.py": {
+    "path": "apps\\reports\\views.py",
+    "lines": 59,
+    "docstring": "apps/reports/views.py \u2014 DRF views for Universal Platform Reports (Phase 13)",
+    "imports": [
+      "db.reports_repo",
+      "db.company_reports_repo",
+      "django.http.HttpResponse",
+      "rest_framework.views.APIView",
+      "apps.common.responses.api_response",
+      "db.visits_repo",
+      "rest_framework.permissions.IsAuthenticated",
+      "csv",
+      "db.listings_repo",
+      "io.StringIO"
+    ],
+    "classes": [
+      "UniversalReportsView",
+      "UniversalReportExportView"
+    ],
+    "functions": [
+      "get",
+      "get"
+    ],
+    "constants": []
+  },
+  "apps\\reports\\__init__.py": {
+    "path": "apps\\reports\\__init__.py",
+    "lines": 1,
+    "docstring": "apps/reports/__init__.py",
+    "imports": [],
+    "classes": [],
+    "functions": [],
+    "constants": []
+  },
+  "apps\\search\\urls.py": {
+    "path": "apps\\search\\urls.py",
+    "lines": 7,
+    "docstring": "apps/search/urls.py \u2014 URL routes for global search",
+    "imports": [
+      ".views",
+      "django.urls.path"
+    ],
+    "classes": [],
+    "functions": [],
+    "constants": []
+  },
+  "apps\\search\\views.py": {
+    "path": "apps\\search\\views.py",
+    "lines": 15,
+    "docstring": "apps/search/views.py \u2014 DRF views for Global Search (Phase 13)",
+    "imports": [
+      "apps.common.responses.api_response",
+      "rest_framework.permissions.IsAuthenticated",
+      "rest_framework.views.APIView",
+      "db.search_repo"
+    ],
+    "classes": [
+      "GlobalSearchView"
+    ],
+    "functions": [
+      "get"
+    ],
+    "constants": []
+  },
+  "apps\\search\\__init__.py": {
+    "path": "apps\\search\\__init__.py",
+    "lines": 1,
+    "docstring": "apps/search/__init__.py",
+    "imports": [],
+    "classes": [],
+    "functions": [],
+    "constants": []
+  },
+  "apps\\visits\\owner_urls.py": {
+    "path": "apps\\visits\\owner_urls.py",
+    "lines": 8,
+    "docstring": "apps/visits/owner_urls.py \u2014 URL routes for owner-side visit management",
+    "imports": [
+      "owner_views.OwnerVisitDetailView",
+      "owner_views.OwnerVisitsView",
+      "django.urls.path"
+    ],
+    "classes": [],
+    "functions": [],
+    "constants": []
+  },
+  "apps\\visits\\owner_views.py": {
+    "path": "apps\\visits\\owner_views.py",
+    "lines": 38,
+    "docstring": "apps/visits/owner_views.py \u2014 DRF views for owner-side visit management (Phase 10)",
+    "imports": [
+      "rest_framework.views.APIView",
+      "serializers.VisitStatusUpdateSerializer",
+      "apps.accounts.permissions.IsOwner",
+      "apps.common.responses.api_response",
+      "rest_framework.status",
+      "db.visits_repo"
+    ],
+    "classes": [
+      "OwnerVisitsView",
+      "OwnerVisitDetailView"
+    ],
+    "functions": [
+      "get",
+      "put"
+    ],
+    "constants": []
+  },
+  "apps\\visits\\serializers.py": {
+    "path": "apps\\visits\\serializers.py",
+    "lines": 18,
+    "docstring": "apps/visits/serializers.py \u2014 DRF serializers for property visits",
+    "imports": [
+      "rest_framework.serializers"
+    ],
+    "classes": [
+      "VisitCreateSerializer",
+      "VisitStatusUpdateSerializer"
+    ],
+    "functions": [],
+    "constants": [
+      "VISIT_STATUS_CHOICES"
+    ]
+  },
+  "apps\\visits\\urls.py": {
+    "path": "apps\\visits\\urls.py",
+    "lines": 9,
+    "docstring": "apps/visits/urls.py \u2014 URL pattern routes for visits app",
+    "imports": [
+      ".views",
+      "django.urls.path"
+    ],
+    "classes": [],
+    "functions": [],
+    "constants": []
+  },
+  "apps\\visits\\views.py": {
+    "path": "apps\\visits\\views.py",
+    "lines": 65,
+    "docstring": "apps/visits/views.py \u2014 DRF views for property visit scheduling",
+    "imports": [
+      "serializers.VisitCreateSerializer",
+      "rest_framework.views.APIView",
+      "serializers.VisitStatusUpdateSerializer",
+      "apps.common.responses.api_response",
+      "rest_framework.status",
+      "db.visits_repo",
+      "apps.accounts.permissions.IsFindAccommodation"
+    ],
+    "classes": [
+      "VisitsView",
+      "VisitDetailView"
+    ],
+    "functions": [
+      "get",
+      "post",
+      "get",
+      "put"
+    ],
+    "constants": []
+  },
+  "apps\\visits\\__init__.py": {
+    "path": "apps\\visits\\__init__.py",
+    "lines": 1,
+    "docstring": "apps/visits/__init__.py",
+    "imports": [],
+    "classes": [],
+    "functions": [],
+    "constants": []
+  },
+  "config\\apps.py": {
+    "path": "config\\apps.py",
+    "lines": 22,
+    "docstring": "config/apps.py \u2014 Custom AppConfig to load ML models once at Django startup (Architecture.md \u00a75, \u00a77)",
+    "imports": [
+      "ml.suspicious_listing.model",
+      "logging",
+      "django.apps.AppConfig",
+      "ml.rent_prediction.model"
+    ],
+    "classes": [
+      "MoveSmartCoreConfig"
+    ],
+    "functions": [
+      "ready"
+    ],
+    "constants": []
+  },
+  "config\\middleware.py": {
+    "path": "config\\middleware.py",
+    "lines": 52,
+    "docstring": "config/middleware.py \u2014 Django Middleware for Platform Maintenance Mode (Phase 14)",
+    "imports": [
+      "db.platform_settings_repo",
+      "django.http.JsonResponse",
+      "apps.accounts.authentication.MongoJWTAuthentication"
+    ],
+    "classes": [
+      "MaintenanceModeMiddleware"
+    ],
+    "functions": [
+      "__init__",
+      "__call__"
+    ],
+    "constants": []
+  },
+  "config\\settings.py": {
+    "path": "config\\settings.py",
+    "lines": 141,
+    "docstring": "config/settings.py \u2014 Django project settings (Architecture.md \u00a72, \u00a75)\nReads all secrets from environment variables via python-dotenv; no secrets hardcoded (Rules.md \u00a75).\nNo ORM DATABASES block \u2014 MongoDB is accessed via PyMongo in db/ (Architecture.md \u00a72).",
+    "imports": [
+      "datetime.timedelta",
+      "os",
+      "dotenv.load_dotenv",
+      "pathlib.Path"
+    ],
+    "classes": [],
+    "functions": [],
+    "constants": [
+      "BASE_DIR",
+      "GEOAPIFY_API_KEY",
+      "WSGI_APPLICATION",
+      "DATABASE_NAME",
+      "RAZORPAY_KEY_ID",
+      "MONGO_URI",
+      "INSTALLED_APPS",
+      "REST_FRAMEWORK",
+      "STATIC_URL",
+      "RAZORPAY_KEY_SECRET",
+      "MEDIA_URL",
+      "DEFAULT_AUTO_FIELD",
+      "MAPS_API_KEY",
+      "CORS_ALLOW_CREDENTIALS",
+      "CORS_ALLOWED_ORIGINS",
+      "MEDIA_ROOT",
+      "CLOUDINARY_CLOUD_NAME",
+      "CLOUDINARY_API_KEY",
+      "GROQ_API_KEY",
+      "ROOT_URLCONF",
+      "SIMPLE_JWT",
+      "MIDDLEWARE",
+      "GEMINI_API_KEY",
+      "TEMPLATES",
+      "DEBUG",
+      "ALLOWED_HOSTS",
+      "SECRET_KEY",
+      "CLOUDINARY_API_SECRET"
+    ]
+  },
+  "config\\urls.py": {
+    "path": "config\\urls.py",
+    "lines": 33,
+    "docstring": "config/urls.py \u2014 Root URL routing; includes each app's urls (Architecture.md \u00a75, \u00a78, Phase 14)",
+    "imports": [
+      "django.urls.include",
+      "django.urls.path",
+      "apps.common.views.HealthCheckView"
+    ],
+    "classes": [],
+    "functions": [],
+    "constants": []
+  },
+  "config\\wsgi.py": {
+    "path": "config\\wsgi.py",
+    "lines": 6,
+    "docstring": "config/wsgi.py \u2014 WSGI config for MoveSmart backend (Architecture.md \u00a79)",
+    "imports": [
+      "os",
+      "django.core.wsgi.get_wsgi_application"
+    ],
+    "classes": [],
+    "functions": [],
+    "constants": []
+  },
+  "config\\__init__.py": {
+    "path": "config\\__init__.py",
+    "lines": 1,
+    "docstring": "config/__init__.py \u2014 Django project package init. (Architecture.md \u00a75)",
+    "imports": [],
+    "classes": [],
+    "functions": [],
+    "constants": []
+  },
+  "data_ingestion\\ingest_all.py": {
+    "path": "data_ingestion\\ingest_all.py",
+    "lines": 71,
+    "docstring": "data_ingestion/ingest_all.py \u2014 Master runner script for database indexing and seed data ingestion.\n\nUsage:\n    python movesmart/backend/data_ingestion/ingest_all.py",
+    "imports": [
+      "data_ingestion.load_99acres_condensed.run_ingestion",
+      "data_ingestion.load_rent_listings.run_ingestion",
+      "db.connection.get_db",
+      "data_ingestion.load_buy_listings.run_ingestion",
+      "sys",
+      "os",
+      "db.indexes.ensure_indexes",
+      "django",
+      "logging"
+    ],
+    "classes": [],
+    "functions": [
+      "main"
+    ],
+    "constants": []
+  },
+  "data_ingestion\\load_99acres_condensed.py": {
+    "path": "data_ingestion\\load_99acres_condensed.py",
+    "lines": 126,
+    "docstring": "data_ingestion/load_99acres_condensed.py \u2014 Load 99acres property datasets into MongoDB listings collection (Architecture.md \u00a75, \u00a76, FR-6)\n\nAll seed listings are written with status='approved' and source='seed' at ingestion time (FR-6).",
+    "imports": [
+      "pymongo.UpdateOne",
+      "db.connection.get_db",
+      "sys",
+      "os",
+      "logging",
+      "django",
+      "json",
+      "datetime.timezone",
+      "datetime.datetime"
+    ],
+    "classes": [],
+    "functions": [
+      "run_ingestion"
+    ],
+    "constants": [
+      "DEFAULT_CENTER"
+    ]
+  },
+  "data_ingestion\\load_buy_listings.py": {
+    "path": "data_ingestion\\load_buy_listings.py",
+    "lines": 135,
+    "docstring": "data_ingestion/load_buy_listings.py \u2014 Load buy_resident_latest.json into MongoDB listings collection (Architecture.md \u00a75, \u00a76, FR-6)\n\nAll seed listings are written with status='approved' and source='seed' at ingestion time (FR-6).",
+    "imports": [
+      "pymongo.UpdateOne",
+      "db.connection.get_db",
+      "sys",
+      "os",
+      "logging",
+      "django",
+      "json",
+      "datetime.timezone",
+      "datetime.datetime"
+    ],
+    "classes": [],
+    "functions": [
+      "run_ingestion"
+    ],
+    "constants": [
+      "DEFAULT_CENTER"
+    ]
+  },
+  "data_ingestion\\load_rent_listings.py": {
+    "path": "data_ingestion\\load_rent_listings.py",
+    "lines": 135,
+    "docstring": "data_ingestion/load_rent_listings.py \u2014 Load resident_rent.json into MongoDB listings collection (Architecture.md \u00a75, \u00a76, FR-6)\n\nAll seed listings are written with status='approved' and source='seed' at ingestion time (FR-6).",
+    "imports": [
+      "pymongo.UpdateOne",
+      "db.connection.get_db",
+      "sys",
+      "os",
+      "logging",
+      "django",
+      "json",
+      "datetime.timezone",
+      "datetime.datetime"
+    ],
+    "classes": [],
+    "functions": [
+      "run_ingestion"
+    ],
+    "constants": [
+      "DEFAULT_CENTER"
+    ]
+  },
+  "data_ingestion\\__init__.py": {
+    "path": "data_ingestion\\__init__.py",
+    "lines": 1,
+    "docstring": "data_ingestion/__init__.py",
+    "imports": [],
+    "classes": [],
+    "functions": [],
+    "constants": []
+  },
+  "db\\activity_repo.py": {
+    "path": "db\\activity_repo.py",
+    "lines": 59,
+    "docstring": "db/activity_repo.py \u2014 PyMongo access layer for activity_logs collection (database.md \u00a73, Phase 13)",
+    "imports": [
+      "typing.Optional",
+      "typing.List",
+      "bson.ObjectId",
+      "typing.Any",
+      "typing.Dict",
+      "connection.get_db",
+      "datetime.timezone",
+      "datetime.datetime"
+    ],
+    "classes": [],
+    "functions": [
+      "_serialize",
+      "log_activity",
+      "get_user_activity_logs"
+    ],
+    "constants": [
+      "VALID_ACTIONS"
+    ]
+  },
+  "db\\admin_platform_repo.py": {
+    "path": "db\\admin_platform_repo.py",
+    "lines": 260,
+    "docstring": "db/admin_platform_repo.py \u2014 PyMongo access layer for Super Admin Platform (database.md \u00a73, Phase 14)",
+    "imports": [
+      ".platform_settings_repo",
+      ".visits_repo",
+      "typing.Optional",
+      ".employees_repo",
+      ".listings_repo",
+      "typing.List",
+      "bson.ObjectId",
+      "typing.Any",
+      "typing.Dict",
+      "connection.get_db",
+      "datetime.timezone",
+      "datetime.datetime",
+      ".users_repo"
+    ],
+    "classes": [],
+    "functions": [
+      "_serialize",
+      "get_admin_dashboard_summary",
+      "get_all_users",
+      "update_user_status",
+      "delete_user",
+      "get_ai_ml_metrics",
+      "fmt_curr"
+    ],
+    "constants": []
+  },
+  "db\\approvals_repo.py": {
+    "path": "db\\approvals_repo.py",
+    "lines": 126,
+    "docstring": "db/approvals_repo.py \u2014 PyMongo access layer for company_approvals collection (database.md \u00a73, Phase 12)",
+    "imports": [
+      "typing.Optional",
+      "typing.List",
+      "bson.ObjectId",
+      "typing.Any",
+      "typing.Dict",
+      "connection.get_db",
+      "datetime.timezone",
+      "datetime.datetime"
+    ],
+    "classes": [],
+    "functions": [
+      "_serialize",
+      "create_approval_request",
+      "get_company_approvals",
+      "get_approval_by_id",
+      "update_approval_status"
+    ],
+    "constants": [
+      "VALID_STATUSES",
+      "VALID_TYPES"
+    ]
+  },
+  "db\\audit_repo.py": {
+    "path": "db\\audit_repo.py",
+    "lines": 56,
+    "docstring": "db/audit_repo.py \u2014 PyMongo access layer for audit_logs collection (database.md \u00a73, Phase 14)",
+    "imports": [
+      "typing.Optional",
+      "typing.List",
+      "bson.ObjectId",
+      "typing.Any",
+      "typing.Dict",
+      "connection.get_db",
+      "datetime.timezone",
+      "datetime.datetime"
+    ],
+    "classes": [],
+    "functions": [
+      "_serialize",
+      "log_admin_action",
+      "get_audit_logs"
+    ],
+    "constants": []
+  },
+  "db\\broker_assignments_repo.py": {
+    "path": "db\\broker_assignments_repo.py",
+    "lines": 98,
+    "docstring": "db/broker_assignments_repo.py \u2014 PyMongo access layer for broker_assignments collection (database.md \u00a73, Phase 12)",
+    "imports": [
+      "typing.Optional",
+      "typing.List",
+      "bson.ObjectId",
+      "typing.Any",
+      "typing.Dict",
+      "connection.get_db",
+      "datetime.timezone",
+      "datetime.datetime"
+    ],
+    "classes": [],
+    "functions": [
+      "_serialize",
+      "create_assignment",
+      "get_company_assignments",
+      "update_assignment_status",
+      "delete_assignment"
+    ],
+    "constants": [
+      "VALID_STATUSES"
+    ]
+  },
+  "db\\calendar_repo.py": {
+    "path": "db\\calendar_repo.py",
+    "lines": 75,
+    "docstring": "db/calendar_repo.py \u2014 PyMongo access layer for calendar_events collection (database.md \u00a73, Phase 13)",
+    "imports": [
+      "typing.Optional",
+      "typing.List",
+      "bson.ObjectId",
+      "typing.Any",
+      "typing.Dict",
+      "connection.get_db",
+      "datetime.timezone",
+      "datetime.datetime"
+    ],
+    "classes": [],
+    "functions": [
+      "_serialize",
+      "create_calendar_event",
+      "get_user_calendar_events",
+      "delete_calendar_event"
+    ],
+    "constants": [
+      "VALID_EVENT_TYPES"
+    ]
+  },
+  "db\\clients_repo.py": {
+    "path": "db\\clients_repo.py",
+    "lines": 150,
+    "docstring": "db/clients_repo.py \u2014 PyMongo access layer for clients collection (database.md \u00a73, Phase 11)",
+    "imports": [
+      "typing.Optional",
+      "typing.List",
+      "bson.ObjectId",
+      "typing.Any",
+      "typing.Dict",
+      "connection.get_db",
+      "datetime.timezone",
+      "datetime.datetime"
+    ],
+    "classes": [],
+    "functions": [
+      "_serialize",
+      "create_client",
+      "get_broker_clients",
+      "get_client_by_id",
+      "update_client",
+      "add_client_note",
+      "delete_client"
+    ],
+    "constants": []
+  },
+  "db\\cms_repo.py": {
+    "path": "db\\cms_repo.py",
+    "lines": 57,
+    "docstring": "db/cms_repo.py \u2014 PyMongo access layer for cms_content collection (database.md \u00a73, Phase 14)",
+    "imports": [
+      "typing.Optional",
+      "bson.ObjectId",
+      "typing.Any",
+      "typing.Dict",
+      "connection.get_db",
+      "datetime.timezone",
+      "datetime.datetime"
+    ],
+    "classes": [],
+    "functions": [
+      "_serialize",
+      "get_cms_page",
+      "update_cms_page"
+    ],
+    "constants": []
+  },
+  "db\\commissions_repo.py": {
+    "path": "db\\commissions_repo.py",
+    "lines": 74,
+    "docstring": "db/commissions_repo.py \u2014 PyMongo access layer for commissions collection (database.md \u00a73.5)",
+    "imports": [
+      ".leads_repo",
+      "typing.Optional",
+      "typing.List",
+      "bson.ObjectId",
+      "typing.Any",
+      "typing.Dict",
+      "connection.get_db",
+      "datetime.timezone",
+      "datetime.datetime"
+    ],
+    "classes": [],
+    "functions": [
+      "_serialize",
+      "create_commission",
+      "get_broker_commissions",
+      "update_payment_status"
+    ],
+    "constants": []
+  },
+  "db\\commute_cache_repo.py": {
+    "path": "db\\commute_cache_repo.py",
+    "lines": 29,
+    "docstring": "db/commute_cache_repo.py \u2014 PyMongo access layer for commute_cache collection (database.md \u00a73.8)",
+    "imports": [
+      "typing.Optional",
+      "typing.Any",
+      "typing.Dict",
+      "connection.get_db",
+      "datetime.timezone",
+      "datetime.datetime"
+    ],
+    "classes": [],
+    "functions": [
+      "get_cached_commute",
+      "set_cached_commute"
+    ],
+    "constants": []
+  },
+  "db\\company_reports_repo.py": {
+    "path": "db\\company_reports_repo.py",
+    "lines": 77,
+    "docstring": "db/company_reports_repo.py \u2014 PyMongo aggregation layer for enterprise corporate HR reports (Phase 12)",
+    "imports": [
+      ".employees_repo",
+      "typing.List",
+      "bson.ObjectId",
+      "typing.Any",
+      ".relocation_batches_repo",
+      "connection.get_db",
+      "typing.Dict",
+      ".expenses_repo"
+    ],
+    "classes": [],
+    "functions": [
+      "generate_employee_relocation_report",
+      "generate_broker_performance_report",
+      "generate_budget_report"
+    ],
+    "constants": []
+  },
+  "db\\connection.py": {
+    "path": "db\\connection.py",
+    "lines": 60,
+    "docstring": "db/connection.py \u2014 PyMongo client setup (Architecture.md \u00a72, \u00a75)\nReads MONGO_URI from Django settings (set from .env). No Django ORM \u2014 see Architecture.md \u00a72.",
+    "imports": [
+      "pymongo",
+      "typing.Optional",
+      "django.conf.settings"
+    ],
+    "classes": [],
+    "functions": [
+      "get_db",
+      "_ensure_indexes"
+    ],
+    "constants": []
+  },
+  "db\\employees_repo.py": {
+    "path": "db\\employees_repo.py",
+    "lines": 159,
+    "docstring": "db/employees_repo.py \u2014 PyMongo access layer for company_employees collection (database.md \u00a73, Phase 12)",
+    "imports": [
+      "typing.Optional",
+      "typing.List",
+      "bson.ObjectId",
+      "typing.Any",
+      "typing.Dict",
+      "connection.get_db",
+      "datetime.timezone",
+      "datetime.datetime"
+    ],
+    "classes": [],
+    "functions": [
+      "_serialize",
+      "create_employee",
+      "get_company_employees",
+      "get_employee_by_id",
+      "update_employee",
+      "delete_employee"
+    ],
+    "constants": [
+      "VALID_RELOCATION_STATUSES"
+    ]
+  },
+  "db\\enquiries_repo.py": {
+    "path": "db\\enquiries_repo.py",
+    "lines": 34,
+    "docstring": "db/enquiries_repo.py \u2014 PyMongo access layer for enquiries collection (database.md \u00a73.4)",
+    "imports": [
+      "typing.Optional",
+      "typing.List",
+      "bson.ObjectId",
+      "typing.Any",
+      "typing.Dict",
+      "connection.get_db",
+      "datetime.timezone",
+      "datetime.datetime"
+    ],
+    "classes": [],
+    "functions": [
+      "_serialize",
+      "create_enquiry",
+      "get_enquiries_for_recipient"
+    ],
+    "constants": []
+  },
+  "db\\expenses_repo.py": {
+    "path": "db\\expenses_repo.py",
+    "lines": 100,
+    "docstring": "db/expenses_repo.py \u2014 PyMongo access layer for relocation_expenses collection (database.md \u00a73, Phase 12)",
+    "imports": [
+      "typing.Optional",
+      "typing.List",
+      "bson.ObjectId",
+      "typing.Any",
+      "typing.Dict",
+      "connection.get_db",
+      "datetime.timezone",
+      "datetime.datetime"
+    ],
+    "classes": [],
+    "functions": [
+      "_serialize",
+      "create_expense",
+      "get_company_expenses",
+      "delete_expense",
+      "get_expense_summary"
+    ],
+    "constants": [
+      "VALID_CATEGORIES"
+    ]
+  },
+  "db\\feedback_repo.py": {
+    "path": "db\\feedback_repo.py",
+    "lines": 71,
+    "docstring": "db/feedback_repo.py \u2014 PyMongo access layer for user_feedback collection (database.md \u00a73, Phase 14)",
+    "imports": [
+      "typing.Optional",
+      "typing.List",
+      "bson.ObjectId",
+      "typing.Any",
+      "typing.Dict",
+      "connection.get_db",
+      "datetime.timezone",
+      "datetime.datetime"
+    ],
+    "classes": [],
+    "functions": [
+      "_serialize",
+      "create_feedback",
+      "get_all_feedback",
+      "update_feedback_status"
+    ],
+    "constants": [
+      "VALID_STATUSES"
+    ]
+  },
+  "db\\indexes.py": {
+    "path": "db\\indexes.py",
+    "lines": 126,
+    "docstring": "db/indexes.py \u2014 MongoDB collection index automation script (Database.md \u00a73)",
+    "imports": [
+      "db.connection.get_db",
+      "sys",
+      "pymongo.ASCENDING",
+      "pymongo.DESCENDING",
+      "os",
+      "django",
+      "logging"
+    ],
+    "classes": [],
+    "functions": [
+      "ensure_indexes"
+    ],
+    "constants": []
+  },
+  "db\\leads_repo.py": {
+    "path": "db\\leads_repo.py",
+    "lines": 137,
+    "docstring": "db/leads_repo.py \u2014 PyMongo access layer for leads collection (database.md \u00a73.4)",
+    "imports": [
+      "typing.Optional",
+      "typing.List",
+      "bson.ObjectId",
+      "typing.Any",
+      "typing.Dict",
+      "connection.get_db",
+      "datetime.timezone",
+      "datetime.datetime"
+    ],
+    "classes": [],
+    "functions": [
+      "_serialize",
+      "create_lead",
+      "get_broker_leads",
+      "get_lead_by_id",
+      "update_lead_status",
+      "update_lead_details"
+    ],
+    "constants": [
+      "VALID_STATUSES",
+      "ALLOWED_TRANSITIONS"
+    ]
+  },
+  "db\\listings_repo.py": {
+    "path": "db\\listings_repo.py",
+    "lines": 263,
+    "docstring": "db/listings_repo.py \u2014 PyMongo access layer for listings collection (database.md \u00a73.2, Architecture.md \u00a73)\n\nSINGLE SOURCE OF TRUTH for status=approved filter (FR-3, Architecture.md \u00a73).\nEvery browse/search/bulk-search query that should return only approved listings MUST call\nget_approved_listings() from this module \u2014 NOT re-implement the filter inline.",
+    "imports": [
+      "typing.Optional",
+      "typing.List",
+      "bson.ObjectId",
+      "typing.Any",
+      "typing.Dict",
+      "typing.Tuple",
+      "connection.get_db",
+      "datetime.timezone",
+      "datetime.datetime",
+      "random"
+    ],
+    "classes": [],
+    "functions": [
+      "_serialize",
+      "get_approved_listings_paginated",
+      "get_approved_listings",
+      "get_owner_listings",
+      "get_listings_by_broker",
+      "get_listing_by_id",
+      "increment_view_count",
+      "increment_enquiry_count",
+      "create_listing",
+      "update_listing",
+      "resubmit_listing",
+      "set_listing_status",
+      "delete_listing",
+      "get_listings_by_status"
+    ],
+    "constants": []
+  },
+  "db\\messages_repo.py": {
+    "path": "db\\messages_repo.py",
+    "lines": 236,
+    "docstring": "db/messages_repo.py \u2014 PyMongo access layer for conversations/messages collection",
+    "imports": [
+      "typing.Optional",
+      ".listings_repo",
+      "typing.List",
+      "bson.ObjectId",
+      "typing.Any",
+      "typing.Dict",
+      "connection.get_db",
+      "datetime.timezone",
+      "datetime.datetime",
+      ".users_repo"
+    ],
+    "classes": [],
+    "functions": [
+      "_serialize",
+      "get_user_conversations",
+      "get_or_create_conversation",
+      "get_conversation_by_id",
+      "add_message_to_conversation",
+      "delete_conversation"
+    ],
+    "constants": []
+  },
+  "db\\notifications_repo.py": {
+    "path": "db\\notifications_repo.py",
+    "lines": 125,
+    "docstring": "db/notifications_repo.py \u2014 PyMongo access layer for notifications collection (database.md \u00a73, Phase 13)",
+    "imports": [
+      "typing.Optional",
+      "typing.List",
+      "bson.ObjectId",
+      "typing.Any",
+      "typing.Dict",
+      "connection.get_db",
+      "datetime.timezone",
+      "datetime.datetime"
+    ],
+    "classes": [],
+    "functions": [
+      "_serialize",
+      "create_notification",
+      "get_user_notifications",
+      "get_unread_count",
+      "mark_as_read",
+      "mark_all_read",
+      "delete_notification"
+    ],
+    "constants": [
+      "VALID_PRIORITIES",
+      "VALID_TYPES"
+    ]
+  },
+  "db\\platform_settings_repo.py": {
+    "path": "db\\platform_settings_repo.py",
+    "lines": 89,
+    "docstring": "db/platform_settings_repo.py \u2014 PyMongo access layer for platform_settings collection (database.md \u00a73, Phase 14)",
+    "imports": [
+      "typing.Any",
+      "connection.get_db",
+      "typing.Dict",
+      "datetime.timezone",
+      "datetime.datetime"
+    ],
+    "classes": [],
+    "functions": [
+      "_serialize",
+      "get_platform_settings",
+      "update_platform_settings",
+      "check_and_increment_ai_quota"
+    ],
+    "constants": [
+      "SETTING_KEY"
+    ]
+  },
+  "db\\relocation_batches_repo.py": {
+    "path": "db\\relocation_batches_repo.py",
+    "lines": 184,
+    "docstring": "db/relocation_batches_repo.py \u2014 PyMongo access layer for relocation_batches collection (database.md \u00a73.6)",
+    "imports": [
+      "typing.Optional",
+      ".listings_repo",
+      "typing.List",
+      "bson.ObjectId",
+      "typing.Any",
+      "typing.Dict",
+      "connection.get_db",
+      "datetime.timezone",
+      "datetime.datetime"
+    ],
+    "classes": [],
+    "functions": [
+      "_serialize",
+      "create_relocation_batch",
+      "get_company_batches",
+      "get_company_batch",
+      "update_batch",
+      "delete_batch",
+      "add_employee_to_batch",
+      "remove_employee_from_batch",
+      "allocate_employee_to_listing"
+    ],
+    "constants": []
+  },
+  "db\\reports_repo.py": {
+    "path": "db\\reports_repo.py",
+    "lines": 178,
+    "docstring": "db/reports_repo.py \u2014 PyMongo aggregation layer for broker CRM reports & performance metrics (Phase 11)",
+    "imports": [
+      "typing.List",
+      "bson.ObjectId",
+      "typing.Any",
+      "typing.Dict",
+      "connection.get_db",
+      "datetime.timezone",
+      "datetime.datetime"
+    ],
+    "classes": [],
+    "functions": [
+      "generate_lead_report",
+      "generate_commission_report",
+      "generate_listing_report",
+      "generate_visit_report",
+      "generate_performance_analytics"
+    ],
+    "constants": []
+  },
+  "db\\saved_items_repo.py": {
+    "path": "db\\saved_items_repo.py",
+    "lines": 127,
+    "docstring": "db/saved_items_repo.py \u2014 PyMongo access layer for saved_items collection (database.md \u00a73.3)",
+    "imports": [
+      "typing.Optional",
+      ".listings_repo",
+      "typing.List",
+      "bson.ObjectId",
+      "typing.Any",
+      "typing.Dict",
+      "connection.get_db",
+      "datetime.timezone",
+      "datetime.datetime"
+    ],
+    "classes": [],
+    "functions": [
+      "_serialize",
+      "save_item",
+      "get_user_saved_items",
+      "remove_saved_item"
+    ],
+    "constants": []
+  },
+  "db\\search_repo.py": {
+    "path": "db\\search_repo.py",
+    "lines": 80,
+    "docstring": "db/search_repo.py \u2014 PyMongo aggregation layer for global platform search (database.md \u00a73, Phase 13)",
+    "imports": [
+      ".employees_repo",
+      ".clients_repo",
+      ".listings_repo",
+      "typing.List",
+      "bson.ObjectId",
+      "typing.Any",
+      "connection.get_db",
+      "typing.Dict",
+      ".users_repo"
+    ],
+    "classes": [],
+    "functions": [
+      "global_search"
+    ],
+    "constants": []
+  },
+  "db\\tasks_repo.py": {
+    "path": "db\\tasks_repo.py",
+    "lines": 143,
+    "docstring": "db/tasks_repo.py \u2014 PyMongo access layer for broker_tasks collection (database.md \u00a73, Phase 11)",
+    "imports": [
+      "typing.Optional",
+      "typing.List",
+      "bson.ObjectId",
+      "typing.Any",
+      "typing.Dict",
+      "connection.get_db",
+      "datetime.timezone",
+      "datetime.datetime"
+    ],
+    "classes": [],
+    "functions": [
+      "_serialize",
+      "create_task",
+      "get_broker_tasks",
+      "get_task_by_id",
+      "update_task",
+      "delete_task"
+    ],
+    "constants": [
+      "VALID_STATUSES",
+      "VALID_PRIORITIES"
+    ]
+  },
+  "db\\users_repo.py": {
+    "path": "db\\users_repo.py",
+    "lines": 155,
+    "docstring": "db/users_repo.py \u2014 PyMongo access layer for users collection (database.md \u00a73.1, Architecture.md \u00a72)\nAll user reads/writes go through this module \u2014 never direct collection access from app views.\npassword_hash must never be returned by any function here except get_user_by_email (for login only).",
+    "imports": [
+      "bson.ObjectId",
+      "datetime.timezone",
+      "datetime.datetime",
+      "connection.get_db"
+    ],
+    "classes": [],
+    "functions": [
+      "_now",
+      "create_user",
+      "create_admin_user",
+      "get_user_by_email",
+      "get_user_by_id",
+      "set_role",
+      "update_role_profile",
+      "unlock_feature",
+      "update_password",
+      "delete_user_by_id",
+      "_serialize_user"
+    ],
+    "constants": []
+  },
+  "db\\visits_repo.py": {
+    "path": "db\\visits_repo.py",
+    "lines": 208,
+    "docstring": "db/visits_repo.py \u2014 PyMongo access layer for visits collection",
+    "imports": [
+      "typing.Optional",
+      ".listings_repo",
+      "typing.List",
+      "bson.ObjectId",
+      "typing.Any",
+      "typing.Dict",
+      "connection.get_db",
+      "datetime.timezone",
+      "datetime.datetime"
+    ],
+    "classes": [],
+    "functions": [
+      "_serialize",
+      "create_visit",
+      "get_seeker_visits",
+      "get_seeker_visits_for_listing",
+      "get_visit_by_id",
+      "update_visit_status",
+      "get_owner_visits",
+      "get_owner_visit_by_id",
+      "owner_update_visit_status"
+    ],
+    "constants": []
+  },
+  "db\\__init__.py": {
+    "path": "db\\__init__.py",
+    "lines": 1,
+    "docstring": "db/__init__.py \u2014 PyMongo database access layer package (Architecture.md \u00a72, \u00a75)",
+    "imports": [],
+    "classes": [],
+    "functions": [],
+    "constants": []
+  },
+  "ml\\rent_prediction\\model.py": {
+    "path": "ml\\rent_prediction\\model.py",
+    "lines": 84,
+    "docstring": "ml/rent_prediction/model.py \u2014 XGBoost model loader and inference wrapper (Architecture.md \u00a75, \u00a77)",
+    "imports": [
+      "typing.Optional",
+      "ml.shared.feature_engineering.prepare_features",
+      "django.conf.settings",
+      "os",
+      "typing.Any",
+      "typing.Dict",
+      "logging",
+      "xgboost"
+    ],
+    "classes": [],
+    "functions": [
+      "load_model",
+      "predict_fair_price"
+    ],
+    "constants": [
+      "ARTIFACT_PATH"
+    ]
+  },
+  "ml\\rent_prediction\\train.py": {
+    "path": "ml\\rent_prediction\\train.py",
+    "lines": 63,
+    "docstring": "ml/rent_prediction/train.py \u2014 Offline training script for XGBoost Rent Predictor (Architecture.md \u00a75, Rules.md \u00a77)",
+    "imports": [
+      "numpy",
+      "os",
+      "random",
+      "json",
+      "xgboost"
+    ],
+    "classes": [],
+    "functions": [
+      "generate_synthetic_data",
+      "train"
+    ],
+    "constants": [
+      "X",
+      "ARTIFACT_DIR",
+      "MODEL_PATH"
+    ]
+  },
+  "ml\\rent_prediction\\__init__.py": {
+    "path": "ml\\rent_prediction\\__init__.py",
+    "lines": 1,
+    "docstring": "ml/rent_prediction/__init__.py",
+    "imports": [],
+    "classes": [],
+    "functions": [],
+    "constants": []
+  },
+  "ml\\shared\\feature_engineering.py": {
+    "path": "ml\\shared\\feature_engineering.py",
+    "lines": 77,
+    "docstring": "ml/shared/feature_engineering.py \u2014 Shared feature engineering logic (Architecture.md \u00a75, Rules.md \u00a77)\n\nCRITICAL: Rules.md \u00a77 \u2014 feature engineering MUST be identical between training (train.py)\nand inference (model.py). Any feature added here must handle missing fields gracefully.",
+    "imports": [
+      "typing.Optional",
+      "typing.List",
+      "typing.Any",
+      "typing.Dict"
+    ],
+    "classes": [],
+    "functions": [
+      "prepare_features"
+    ],
+    "constants": [
+      "LOCALITY_ENCODING"
+    ]
+  },
+  "ml\\shared\\__init__.py": {
+    "path": "ml\\shared\\__init__.py",
+    "lines": 1,
+    "docstring": "ml/shared/__init__.py",
+    "imports": [],
+    "classes": [],
+    "functions": [],
+    "constants": []
+  },
+  "ml\\suspicious_listing\\model.py": {
+    "path": "ml\\suspicious_listing\\model.py",
+    "lines": 66,
+    "docstring": "ml/suspicious_listing/model.py \u2014 Isolation Forest anomaly detector wrapper (Architecture.md \u00a75, \u00a77)",
+    "imports": [
+      "typing.Optional",
+      "ml.shared.feature_engineering.prepare_features",
+      "pickle",
+      "django.conf.settings",
+      "os",
+      "typing.Any",
+      "typing.Dict",
+      "logging",
+      "datetime.timezone",
+      "datetime.datetime"
+    ],
+    "classes": [],
+    "functions": [
+      "load_model",
+      "predict_suspicious"
+    ],
+    "constants": [
+      "ARTIFACT_PATH"
+    ]
+  },
+  "ml\\suspicious_listing\\train.py": {
+    "path": "ml\\suspicious_listing\\train.py",
+    "lines": 71,
+    "docstring": "ml/suspicious_listing/train.py \u2014 Offline training script for Isolation Forest anomaly detector (Architecture.md \u00a75, Rules.md \u00a77)",
+    "imports": [
+      "db.connection.get_db",
+      "ml.shared.feature_engineering.prepare_features",
+      "sys",
+      "pickle",
+      "numpy",
+      "os",
+      "sklearn.ensemble.IsolationForest",
+      "random"
+    ],
+    "classes": [],
+    "functions": [
+      "load_training_data",
+      "train"
+    ],
+    "constants": [
+      "X",
+      "ARTIFACT_DIR",
+      "MODEL_PATH"
+    ]
+  },
+  "ml\\suspicious_listing\\__init__.py": {
+    "path": "ml\\suspicious_listing\\__init__.py",
+    "lines": 1,
+    "docstring": "ml/suspicious_listing/__init__.py",
+    "imports": [],
+    "classes": [],
+    "functions": [],
+    "constants": []
+  },
+  "tests\\test_auth.py": {
+    "path": "tests\\test_auth.py",
+    "lines": 25,
+    "docstring": "tests/test_auth.py \u2014 Unit tests for authentication and user onboarding",
+    "imports": [
+      "rest_framework.test.APIClient",
+      "sys",
+      "rest_framework.status",
+      "os",
+      "unittest",
+      "django"
+    ],
+    "classes": [
+      "AuthTests"
+    ],
+    "functions": [
+      "setUp",
+      "test_signup_validation_missing_fields",
+      "test_login_validation_invalid_credentials"
+    ],
+    "constants": []
+  },
+  "tests\\test_health.py": {
+    "path": "tests\\test_health.py",
+    "lines": 24,
+    "docstring": "tests/test_health.py \u2014 Unit tests for system health endpoint",
+    "imports": [
+      "rest_framework.test.APIClient",
+      "sys",
+      "rest_framework.status",
+      "os",
+      "unittest",
+      "django"
+    ],
+    "classes": [
+      "HealthCheckTests"
+    ],
+    "functions": [
+      "setUp",
+      "test_health_check_endpoint"
+    ],
+    "constants": []
+  },
+  "tests\\test_listings.py": {
+    "path": "tests\\test_listings.py",
+    "lines": 28,
+    "docstring": "tests/test_listings.py \u2014 Unit tests for listings browse and detail endpoints",
+    "imports": [
+      "rest_framework.test.APIClient",
+      "sys",
+      "rest_framework.status",
+      "os",
+      "unittest",
+      "django"
+    ],
+    "classes": [
+      "ListingsTests"
+    ],
+    "functions": [
+      "setUp",
+      "test_get_approved_listings_unauthenticated",
+      "test_get_nonexistent_listing"
+    ],
+    "constants": []
+  },
+  "tests\\test_ml.py": {
+    "path": "tests\\test_ml.py",
+    "lines": 59,
+    "docstring": "tests/test_ml.py \u2014 Unit tests for ML feature engineering and prediction functions",
+    "imports": [
+      "ml.shared.feature_engineering.prepare_features",
+      "ml.suspicious_listing.model",
+      "sys",
+      "os",
+      "unittest",
+      "ml.rent_prediction.model",
+      "django"
+    ],
+    "classes": [
+      "MLTests"
+    ],
+    "functions": [
+      "test_feature_engineering_extraction",
+      "test_rent_prediction_inference",
+      "test_anomaly_detection_inference"
+    ],
+    "constants": []
+  },
+  "tests\\__init__.py": {
+    "path": "tests\\__init__.py",
+    "lines": 5,
+    "docstring": null,
+    "imports": [
+      "os",
+      "django"
+    ],
+    "classes": [],
+    "functions": [],
+    "constants": []
+  }
+}

@@ -168,17 +168,20 @@ export default function ListingDetail() {
   const handleToggleSave = async () => {
     setSaving(true);
     try {
-      if (isSaved && savedId) {
-        await removeSavedListing(savedId);
+      if (isSaved) {
+        const targetId = savedId || id;
+        await removeSavedListing(targetId);
         setIsSaved(false);
         setSavedId(null);
       } else {
         const res = await saveListing(id);
         const data = res.data || res;
         setIsSaved(true);
-        setSavedId(data._id);
+        const newSavedId = data._id || data.id || (data.data && data.data._id);
+        setSavedId(newSavedId || id);
       }
     } catch (err) {
+      console.error('Failed to update bookmark:', err);
       alert('Failed to update bookmark.');
     } finally {
       setSaving(false);

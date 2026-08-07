@@ -60,7 +60,7 @@ class IsAdmin(BasePermission):
         return bool(
             request.user
             and getattr(request.user, 'is_authenticated', False)
-            and getattr(request.user, 'role', None) == UserRoles.ADMIN
+            and getattr(request.user, 'role', None) in (UserRoles.ADMIN, 'super_admin')
         )
 
 

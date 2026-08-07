@@ -101,10 +101,11 @@ export default function AssistantWidget() {
         ...prev,
         { sender: 'assistant', text: data.reply || 'I could not generate a response.' }
       ]);
-    } catch {
+    } catch (err) {
+      const serverMsg = err.response?.data?.data?.reply || err.response?.data?.message;
       setMessages((prev) => [
         ...prev,
-        { sender: 'assistant', text: 'The MoveSmart AI Guide is temporarily unavailable. Please try again in a moment.' }
+        { sender: 'assistant', text: serverMsg || 'The MoveSmart AI Guide is temporarily unavailable. Please try again in a moment.' }
       ]);
     } finally {
       setLoading(false);

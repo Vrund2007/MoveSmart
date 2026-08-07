@@ -57,3 +57,33 @@ def update_platform_settings(settings_data: dict) -> Dict[str, Any]:
         upsert=True
     )
     return get_platform_settings()
+
+
+def check_and_increment_ai_quota() -> tuple:
+    """Check if daily AI request limit is exceeded and increment count.
+    Returns (is_allowed: bool, current_count: int, daily_limit: int).
+    """
+    db = get_db()
+    settings = get_platform_settings()
+    daily_limit = int(settings.get("gemini_daily_quota", 10000))
+    today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+    last_date = settings.get("quota_reset_date")
+    current_count = int(settings.get("daily_ai_requests_count", 0))
+
+    if last_date != today_str:
+        current_count = 0
+        db["platform_settings"].update_one(
+            {"setting_key": SETTING_KEY},
+            {"$set": {"daily_ai_requests_count": 0, "quota_reset_date": today_str}}
+        )
+
+    if current_count >= daily_limit:
+        return False, current_count, daily_limit
+
+    db["platform_settings"].update_one(
+        {"setting_key": SETTING_KEY},
+        {"$inc": {"daily_ai_requests_count": 1}, "$set": {"quota_reset_date": today_str}}
+    )
+    return True, current_count + 1, daily_limit
+

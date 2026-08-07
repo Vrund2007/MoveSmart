@@ -29,6 +29,22 @@ class PlatformSettingsView(APIView):
         return api_response(data=updated, message="Platform settings updated successfully.")
 
 
+class PublicPlatformSettingsView(APIView):
+    """GET /api/platform/settings/public — Public endpoint for checking maintenance mode & platform parameters."""
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        settings_data = platform_settings_repo.get_platform_settings()
+        public_data = {
+            "maintenance_mode": bool(settings_data.get("maintenance_mode", False)),
+            "auto_approve_listings": bool(settings_data.get("auto_approve_listings", False)),
+            "max_upload_size_mb": int(settings_data.get("max_upload_size_mb", 10)),
+            "gemini_enabled": bool(settings_data.get("gemini_enabled", True)),
+            "gemini_daily_quota": int(settings_data.get("gemini_daily_quota", 10000)),
+        }
+        return api_response(data=public_data, message="Public platform settings retrieved.")
+
+
 class FeedbackListView(APIView):
     """GET /api/admin/feedback — List feedback submissions (Admin).
     POST /api/platform/feedback — Submit feedback (Public / Authenticated).

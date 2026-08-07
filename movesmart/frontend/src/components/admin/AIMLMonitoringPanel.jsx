@@ -12,7 +12,8 @@ export default function AIMLMonitoringPanel() {
       setLoading(true);
       try {
         const res = await getAIMLMonitoring();
-        setMetrics(res.data || res);
+        const payload = res.data?.data || res.data || res;
+        setMetrics(payload);
       } catch {
         setMetrics(null);
       } finally {

@@ -118,12 +118,15 @@ def get_listings_by_broker(broker_id: str) -> List[Dict[str, Any]]:
 def get_listing_by_id(listing_id: str, include_non_approved: bool = False) -> Optional[Dict[str, Any]]:
     """Fetch a single listing by ID."""
     db = get_db()
-    try:
-        oid = ObjectId(listing_id)
-    except Exception:
+    if not listing_id:
         return None
 
-    query: Dict[str, Any] = {"_id": oid}
+    id_conditions = []
+    if ObjectId.is_valid(str(listing_id)):
+        id_conditions.append({"_id": ObjectId(str(listing_id))})
+    id_conditions.append({"_id": str(listing_id)})
+
+    query: Dict[str, Any] = {"$or": id_conditions}
     if not include_non_approved:
         query["status"] = "approved"
 
@@ -196,33 +199,27 @@ def create_listing(listing_data: dict) -> str:
 
 
 def update_listing(listing_id: str, update_data: dict) -> Dict[str, Any]:
-    """Update a listing document."""
+    """Update an existing listing document in-place and reset status to 'pending_review' for admin approval."""
     db = get_db()
-    try:
-        oid = ObjectId(listing_id)
-    except Exception:
+    if not listing_id:
         return {}
 
-    doc = dict(update_data)
-    doc["updated_at"] = datetime.now(timezone.utc)
-    db["listings"].update_one({"_id": oid}, {"$set": doc})
-    return get_listing_by_id(listing_id, include_non_approved=True)
-
-
-def resubmit_listing(listing_id: str, update_data: dict) -> Dict[str, Any]:
-    """Update a listing, reset status to 'pending_review', and clear rejection_reason."""
-    db = get_db()
-    try:
-        oid = ObjectId(listing_id)
-    except Exception:
-        return {}
+    id_conditions = []
+    if ObjectId.is_valid(str(listing_id)):
+        id_conditions.append({"_id": ObjectId(str(listing_id))})
+    id_conditions.append({"_id": str(listing_id)})
 
     doc = dict(update_data)
     doc["status"] = "pending_review"
     doc["rejection_reason"] = None
     doc["updated_at"] = datetime.now(timezone.utc)
-    db["listings"].update_one({"_id": oid}, {"$set": doc})
+    db["listings"].update_one({"$or": id_conditions}, {"$set": doc})
     return get_listing_by_id(listing_id, include_non_approved=True)
+
+
+def resubmit_listing(listing_id: str, update_data: dict) -> Dict[str, Any]:
+    """Update a listing, reset status to 'pending_review', and clear rejection_reason."""
+    return update_listing(listing_id, update_data)
 
 
 def set_listing_status(listing_id: str, status: str, rejection_reason: Optional[str] = None) -> None:
@@ -242,18 +239,25 @@ def set_listing_status(listing_id: str, status: str, rejection_reason: Optional[
 
 
 def delete_listing(listing_id: str) -> bool:
-    """Delete a listing by ID."""
+    """Delete a listing by ID (supporting both BSON ObjectId and string ID)."""
     db = get_db()
-    try:
-        oid = ObjectId(listing_id)
-    except Exception:
+    if not listing_id:
         return False
-    res = db["listings"].delete_one({"_id": oid})
+
+    id_conditions = []
+    if ObjectId.is_valid(str(listing_id)):
+        id_conditions.append({"_id": ObjectId(str(listing_id))})
+    id_conditions.append({"_id": str(listing_id)})
+
+    res = db["listings"].delete_one({"$or": id_conditions})
     return res.deleted_count > 0
 
 
 def get_listings_by_status(status: str) -> List[Dict[str, Any]]:
-    """Fetch all listings with a given status (used by Admin review queue)."""
+    """Fetch all listings with a given status (or all listings if status is empty or 'all')."""
     db = get_db()
-    cursor = db["listings"].find({"status": status}).sort("created_at", -1)
+    query = {}
+    if status and status != "all":
+        query["status"] = status
+    cursor = db["listings"].find(query).sort("created_at", -1)
     return [_serialize(doc) for doc in cursor]
