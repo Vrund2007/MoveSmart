@@ -519,15 +519,22 @@ export default function OwnerDashboard() {
     pendingVisits: visits.filter(v => v.status === 'requested').length,
   };
 
+  const handleStartAddProperty = () => {
+    setEditingListing(null);
+    setTab('wizard');
+  };
+
   const handleWizardComplete = async (formData) => {
     try {
-      if (editingListing) {
+      if (editingListing && editingListing._id) {
         await updateListing(editingListing._id, formData);
-        setEditingListing(null);
+        alert('Property updated successfully and submitted for admin approval!');
       } else {
         await createListing(formData);
-        setTab('properties');
+        alert('New property submitted successfully for admin approval!');
       }
+      setEditingListing(null);
+      setTab('properties');
       fetchListings();
     } catch (err) {
       alert(err.response?.data?.message || 'Failed to save listing.');
@@ -624,6 +631,7 @@ export default function OwnerDashboard() {
                 <button
                   key={tab.id}
                   onClick={() => {
+                    if (tab.id === 'wizard') setEditingListing(null);
                     setTab(tab.id);
                     setMobileDrawerOpen(false);
                   }}
@@ -699,7 +707,10 @@ export default function OwnerDashboard() {
               if (tab.id === 'properties') badge = listings.length;
               if (tab.id === 'visits') badge = stats.pendingVisits;
               return (
-                <button key={tab.id} onClick={() => setTab(tab.id)}
+                <button key={tab.id} onClick={() => {
+                  if (tab.id === 'wizard') setEditingListing(null);
+                  setTab(tab.id);
+                }}
                   className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${
                     isActive ? 'bg-[#00ADB5] text-white shadow-xs' : 'text-[#393E46] hover:bg-[#EEEEEE]'
                   }`}>
@@ -749,7 +760,7 @@ export default function OwnerDashboard() {
           <Button
             variant="primary"
             size="sm"
-            onClick={() => setTab('wizard')}
+            onClick={handleStartAddProperty}
             className="whitespace-nowrap flex-shrink-0 text-xs font-bold px-3.5 py-1.5 rounded-xl"
           >
             + Add Property
@@ -768,7 +779,7 @@ export default function OwnerDashboard() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => setTab('wizard')}
+                  onClick={handleStartAddProperty}
                   className="bg-white text-[#222831] hover:bg-[#EEEEEE] font-black text-xs rounded-xl px-4 py-2.5 shadow-sm transition-all flex-shrink-0"
                 >
                   + Add New Property
@@ -795,7 +806,10 @@ export default function OwnerDashboard() {
                   ].map(a => {
                     const ActIcon = a.icon;
                     return (
-                      <button key={a.tab} onClick={() => setTab(a.tab)}
+                      <button key={a.tab} onClick={() => {
+                        if (a.tab === 'wizard') setEditingListing(null);
+                        setTab(a.tab);
+                      }}
                         className="bg-white border border-border rounded-2xl p-4 text-left hover:shadow-md hover:border-primary/40 transition-all group shadow-xs">
                         <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl mb-2 ${a.color}`}>
                           <ActIcon className="w-5 h-5" />
@@ -863,7 +877,7 @@ export default function OwnerDashboard() {
                   </div>
                   <h3 className="font-extrabold text-base text-text-primary mb-1">No Properties Found</h3>
                   <p className="text-xs text-text-secondary mb-5">Add your first property to get started on MoveSmart.</p>
-                  <Button variant="primary" size="sm" onClick={() => setTab('wizard')} className="font-bold text-xs rounded-xl">
+                  <Button variant="primary" size="sm" onClick={handleStartAddProperty} className="font-bold text-xs rounded-xl">
                     + Add Property
                   </Button>
                 </Card>
@@ -916,6 +930,7 @@ export default function OwnerDashboard() {
                 {editingListing ? `Edit Property: ${editingListing.title}` : 'Add New Property'}
               </h3>
               <PropertyWizard
+                key={editingListing ? editingListing._id : 'new_property'}
                 initialValues={editingListing}
                 listings={listings}
                 onComplete={handleWizardComplete}

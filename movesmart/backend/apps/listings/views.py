@@ -5,7 +5,7 @@ from rest_framework import status
 from apps.common.responses import api_response
 from apps.common.constants import UserRoles
 from apps.accounts.permissions import IsOwnerOrBroker
-from db import listings_repo, saved_items_repo
+from db import listings_repo, saved_items_repo, platform_settings_repo
 from ml.rent_prediction import model as rent_model
 from ml.suspicious_listing import model as anomaly_model
 from .serializers import ListingCreateSerializer, ListingUpdateSerializer
@@ -95,7 +95,12 @@ class ListingsView(APIView):
             return api_response(errors=serializer.errors, message="Validation error", status_code=status.HTTP_400_BAD_REQUEST)
 
         data = serializer.validated_data
-        data['status'] = 'pending_review'
+        settings_cfg = platform_settings_repo.get_platform_settings()
+        if settings_cfg.get('auto_approve_listings'):
+            data['status'] = 'approved'
+        else:
+            data['status'] = 'pending_review'
+
         data['source'] = 'landlord_portal'
         data['source_detail'] = 'landlord_form'
         if not data.get('title'):
@@ -113,7 +118,8 @@ class ListingsView(APIView):
         listing_id = listings_repo.create_listing(data)
         created_item = listings_repo.get_listing_by_id(listing_id, include_non_approved=True)
 
-        return api_response(data=created_item, message="Listing submitted for approval.", status_code=status.HTTP_201_CREATED)
+        msg = "Listing created and auto-approved." if data['status'] == 'approved' else "Listing submitted for approval."
+        return api_response(data=created_item, message=msg, status_code=status.HTTP_201_CREATED)
 
 
 
@@ -132,7 +138,7 @@ class ListingDetailView(APIView):
     def get_permissions(self):
         if self.request.method == 'GET':
             return [AllowAny()]
-        return [IsAuthenticated(), IsOwnerOrBroker()]
+        return [IsAuthenticated()]
 
     def get(self, request, listing_id):
         user_id = getattr(request.user, 'id', None) if request.user and request.user.is_authenticated else None
@@ -142,7 +148,7 @@ class ListingDetailView(APIView):
             return api_response(message="Listing not found.", status_code=status.HTTP_404_NOT_FOUND)
 
         if listing.get('status') != 'approved':
-            if not user_id or (listing.get('owner_id') != user_id and getattr(request.user, 'role', None) != UserRoles.ADMIN):
+            if not user_id or (listing.get('owner_id') != user_id and getattr(request.user, 'role', None) not in (UserRoles.ADMIN, 'super_admin')):
                 return api_response(message="Listing not found.", status_code=status.HTTP_404_NOT_FOUND)
 
         # Increment view count in DB on every request (even for same user)
@@ -159,8 +165,6 @@ class ListingDetailView(APIView):
         except Exception:
             item_data['rent_prediction'] = item_data.get('predicted_price_range')
 
-
-
         try:
             item_data['trust_score'] = anomaly_model.predict_suspicious(item_data)
             if item_data['trust_score']:
@@ -170,13 +174,14 @@ class ListingDetailView(APIView):
 
         return api_response(data=item_data, message="Listing retrieved successfully.")
 
-
     def put(self, request, listing_id):
         listing = listings_repo.get_listing_by_id(listing_id, include_non_approved=True)
         if not listing:
             return api_response(message="Listing not found.", status_code=status.HTTP_404_NOT_FOUND)
 
-        if listing.get('owner_id') != request.user.id and listing.get('submitted_by_broker_id') != request.user.id:
+        user_role = getattr(request.user, 'role', None)
+        is_admin = user_role in (UserRoles.ADMIN, 'super_admin')
+        if not is_admin and listing.get('owner_id') != request.user.id and listing.get('submitted_by_broker_id') != request.user.id:
             return api_response(message="Permission denied. You can only edit your own listings.", status_code=status.HTTP_403_FORBIDDEN)
 
         serializer = ListingUpdateSerializer(data=request.data)
@@ -198,10 +203,15 @@ class ListingDetailView(APIView):
         if not listing:
             return api_response(message="Listing not found.", status_code=status.HTTP_404_NOT_FOUND)
 
-        if listing.get('owner_id') != request.user.id and listing.get('submitted_by_broker_id') != request.user.id:
+        user_role = getattr(request.user, 'role', None)
+        is_admin = user_role in (UserRoles.ADMIN, 'super_admin')
+        if not is_admin and listing.get('owner_id') != request.user.id and listing.get('submitted_by_broker_id') != request.user.id:
             return api_response(message="Permission denied. You can only delete your own listings.", status_code=status.HTTP_403_FORBIDDEN)
 
-        listings_repo.delete_listing(listing_id)
+        deleted = listings_repo.delete_listing(listing_id)
+        if not deleted:
+            return api_response(message="Failed to delete listing.", status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
         return api_response(message="Listing deleted successfully.")
 
 
@@ -302,6 +312,18 @@ class ImageUploadView(APIView):
             files = request.FILES.getlist('images') or request.FILES.getlist('file') or ([request.FILES['image']] if 'image' in request.FILES else [])
             if not files:
                 return api_response(message="No media files provided.", status_code=status.HTTP_400_BAD_REQUEST)
+
+            settings_cfg = platform_settings_repo.get_platform_settings()
+            max_mb = int(settings_cfg.get('max_upload_size_mb', 10))
+            max_bytes = max_mb * 1024 * 1024
+
+            for f in files:
+                if f.size > max_bytes:
+                    file_mb = round(f.size / (1024 * 1024), 2)
+                    return api_response(
+                        message=f"File '{f.name}' ({file_mb} MB) exceeds maximum allowed upload size of {max_mb} MB.",
+                        status_code=status.HTTP_400_BAD_REQUEST
+                    )
 
             cloud_name = getattr(settings, 'CLOUDINARY_CLOUD_NAME', None) or os.getenv('CLOUDINARY_CLOUD_NAME')
             api_key = getattr(settings, 'CLOUDINARY_API_KEY', None) or os.getenv('CLOUDINARY_API_KEY')

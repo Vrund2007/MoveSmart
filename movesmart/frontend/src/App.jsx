@@ -28,6 +28,8 @@ import Reports from './pages/Reports';
 import Activity from './pages/Activity';
 import Settings from './pages/Settings';
 
+import { getPublicPlatformSettings } from './api/platform';
+
 // Helper to get default dashboard path for a role
 export function getRoleDashboard(role) {
   switch (role) {
@@ -37,6 +39,54 @@ export function getRoleDashboard(role) {
     case 'admin':              return '/admin';
     default:                   return '/dashboard';
   }
+}
+
+function MaintenanceNoticeGuard({ children }) {
+  const { user } = useAuth();
+  const [maintenance, setMaintenance] = React.useState(false);
+  const location = useLocation();
+
+  React.useEffect(() => {
+    const checkMaintenance = async () => {
+      try {
+        const res = await getPublicPlatformSettings();
+        const data = res.data || res;
+        setMaintenance(Boolean(data.maintenance_mode));
+      } catch {
+        /* ignore */
+      }
+    };
+    checkMaintenance();
+  }, [location.pathname]);
+
+  if (maintenance && user?.role !== 'admin' && location.pathname !== '/login') {
+    return (
+      <div className="min-h-screen bg-[#222831] flex items-center justify-center p-6 text-white font-sans text-center">
+        <div className="max-w-md w-full bg-[#393E46] border border-white/10 rounded-3xl p-8 space-y-6 shadow-2xl">
+          <div className="w-16 h-16 rounded-full bg-[#00ADB5]/20 text-[#00ADB5] flex items-center justify-center mx-auto text-3xl border border-[#00ADB5]/30">
+            🛠️
+          </div>
+          <div className="space-y-2">
+            <h1 className="text-xl font-black text-white">Platform Maintenance Active</h1>
+            <p className="text-xs text-gray-300 leading-relaxed font-medium">
+              MoveSmart is currently undergoing scheduled platform configuration and maintenance. Non-admin access is temporarily restricted.
+            </p>
+          </div>
+          <div className="bg-[#222831] p-3.5 rounded-2xl border border-white/5 text-[11px] text-[#00ADB5] font-mono font-bold">
+            Status: 503 Scheduled Maintenance Mode
+          </div>
+          <a
+            href="/login"
+            className="inline-block bg-[#00ADB5] hover:bg-teal-600 text-white font-extrabold text-xs px-6 py-3 rounded-xl transition-all shadow-md"
+          >
+            Super Admin Portal Login
+          </a>
+        </div>
+      </div>
+    );
+  }
+
+  return children;
 }
 
 // Protected Route wrapper enforcing authentication, role selection, and onboarding completion
@@ -82,6 +132,7 @@ function App() {
     <BrowserRouter>
       <AuthProvider>
         <ProfileProvider>
+          <MaintenanceNoticeGuard>
           <Routes>
             {/* Public Routes */}
             <Route path="/" element={<Landing />} />
@@ -196,6 +247,7 @@ function App() {
             {/* Fallback */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+          </MaintenanceNoticeGuard>
         </ProfileProvider>
       </AuthProvider>
     </BrowserRouter>

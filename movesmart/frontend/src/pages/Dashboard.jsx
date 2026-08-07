@@ -160,6 +160,7 @@ export default function Dashboard() {
   const [paginationMeta, setPaginationMeta]   = useState({ page: urlPage, total_pages: 1, total_count: 0, has_next: false });
   const [currentFilters, setCurrentFilters]   = useState(getInitialFiltersFromUrl);
   const [savedItems, setSavedItems]           = useState([]);
+  const validSavedItems                       = savedItems.filter((item) => Boolean(item && item.listing));
   const [savedLoading, setSavedLoading]       = useState(false);
   const [costData, setCostData]               = useState(null);
   const [costFilters, setCostFilters]         = useState({
@@ -325,11 +326,15 @@ export default function Dashboard() {
       const isSaved = savedItems.some((item) => item.listing_id === listingId || item.listing?._id === listingId);
       if (isSaved) {
         const savedItem = savedItems.find((item) => item.listing_id === listingId || item.listing?._id === listingId);
-        if (savedItem) await removeSavedListing(savedItem._id);
+        const targetId = savedItem?._id || listingId;
+        await removeSavedListing(targetId);
+        setSavedItems((prev) => prev.filter((item) => item.listing_id !== listingId && item.listing?._id !== listingId && item._id !== targetId));
       } else {
         await saveListing(listingId);
+        await fetchSavedListings();
       }
-    } catch {
+    } catch (err) {
+      console.error('Failed to toggle bookmark:', err);
       alert('Failed to update bookmark.');
     }
   };
@@ -431,7 +436,7 @@ export default function Dashboard() {
                   const isActive = activeTab === tab.id;
                   const isLocked = (tab.id === 'recommendations' || tab.id === 'commute') && !(user?.unlocked_features || []).includes(tab.id);
                   let countBadge = null;
-                  if (tab.id === 'saved' && savedItems.length > 0) countBadge = savedItems.length;
+                  if (tab.id === 'saved' && validSavedItems.length > 0) countBadge = validSavedItems.length;
                   if (tab.id === 'visits' && upcomingVisits.length > 0) countBadge = upcomingVisits.length;
 
                   const IconComponent = tab.Icon;
@@ -530,7 +535,7 @@ export default function Dashboard() {
               const isActive = activeTab === tab.id;
               const isLocked = (tab.id === 'recommendations' || tab.id === 'commute') && !(user?.unlocked_features || []).includes(tab.id);
               let countBadge = null;
-              if (tab.id === 'saved' && savedItems.length > 0) countBadge = savedItems.length;
+              if (tab.id === 'saved' && validSavedItems.length > 0) countBadge = validSavedItems.length;
               if (tab.id === 'visits' && upcomingVisits.length > 0) countBadge = upcomingVisits.length;
 
               const IconComponent = tab.Icon;
@@ -603,7 +608,7 @@ export default function Dashboard() {
               {/* Key Executive Metrics */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 {[
-                  { label: 'Saved Bookmarks', value: savedItems.length, sub: 'Favorite properties', color: 'border-l-amber-500' },
+                  { label: 'Saved Bookmarks', value: validSavedItems.length, sub: 'Favorite properties', color: 'border-l-amber-500' },
                   { label: 'Upcoming Visits', value: upcomingVisits.length, sub: 'Scheduled tours', color: 'border-l-blue-500' },
                   { label: 'Locality Ratings', value: recommendations.length, sub: 'Scored districts', color: 'border-l-primary' },
                   { label: 'Approved Properties', value: paginationMeta.total_count || listings.length, sub: 'Verified listings', color: 'border-l-emerald-500' },
@@ -699,7 +704,7 @@ export default function Dashboard() {
               )}
 
               {/* Saved Properties */}
-              {savedItems.length > 0 && (
+              {validSavedItems.length > 0 && (
                 <div>
                   <div className="flex justify-between items-center mb-3">
                     <h3 className="text-xs font-extrabold text-text-secondary uppercase tracking-wider">
@@ -710,7 +715,7 @@ export default function Dashboard() {
                     </button>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {savedItems.slice(0, 3).map((item) => {
+                    {validSavedItems.slice(0, 3).map((item) => {
                       const listing = item.listing;
                       if (!listing) return null;
                       return (
@@ -868,7 +873,7 @@ export default function Dashboard() {
                       Bookmarked Listings
                     </span>
                     <span className="text-xs text-text-secondary font-extrabold bg-surface px-2.5 py-0.5 rounded-full border border-border">
-                      {savedItems.length} Saved {savedItems.length === 1 ? 'Property' : 'Properties'}
+                      {validSavedItems.length} Saved {validSavedItems.length === 1 ? 'Property' : 'Properties'}
                     </span>
                   </div>
                   <h3 className="font-black text-xl text-text-primary mt-1">Saved Properties Collection</h3>
@@ -889,7 +894,7 @@ export default function Dashboard() {
 
               {savedLoading ? (
                 <div className="py-16 text-center"><LoadingSpinner size="lg" message="Loading your saved bookmarks..." /></div>
-              ) : savedItems.length === 0 ? (
+              ) : validSavedItems.length === 0 ? (
                 <Card className="text-center py-16 text-xs text-text-secondary bg-white border border-border rounded-2xl space-y-3 p-8">
                   <div className="w-14 h-14 rounded-full bg-surface border border-border flex items-center justify-center mx-auto text-[#00ADB5]">
                     <BookmarkIcon className="w-7 h-7" />
@@ -904,7 +909,7 @@ export default function Dashboard() {
                 </Card>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {savedItems.map((item) => {
+                  {validSavedItems.map((item) => {
                     const listing = item.listing;
                     if (!listing) return null;
                     const isBuy = String(listing.deal_type || '').toLowerCase() === 'buy';

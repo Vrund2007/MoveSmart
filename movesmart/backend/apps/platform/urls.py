@@ -4,6 +4,7 @@ from . import views
 
 urlpatterns = [
     path('admin/settings', views.PlatformSettingsView.as_view(), name='admin-settings'),
+    path('platform/settings/public', views.PublicPlatformSettingsView.as_view(), name='public-settings'),
     path('admin/feedback', views.FeedbackListView.as_view(), name='admin-feedback'),
     path('admin/feedback/<str:feedback_id>', views.FeedbackDetailView.as_view(), name='admin-feedback-detail'),
     path('platform/feedback', views.FeedbackListView.as_view(), name='public-feedback'),

@@ -252,8 +252,8 @@ export default function AdminDashboard() {
               <MenuIcon className="w-5 h-5" />
             </button>
             <div>
-              <h1 className="text-lg sm:text-xl font-black text-[#222831] tracking-tight capitalize">
-                {activeTab.replace('-', ' ')}
+              <h1 className="text-lg sm:text-xl font-black text-[#222831] tracking-tight">
+                {SIDEBAR_TABS.find((t) => t.id === activeTab)?.label || activeTab}
               </h1>
               <p className="text-[11px] text-[#393E46] font-medium hidden sm:block">
                 Master Platform Control & Governance Suite
