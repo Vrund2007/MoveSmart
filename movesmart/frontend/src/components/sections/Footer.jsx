@@ -10,7 +10,7 @@ export default function Footer() {
       if (targetEl) {
         const smoother = window.gsapSmoother;
         if (smoother && typeof smoother.scrollTo === 'function') {
-          smoother.scrollTo(targetEl, true, 'top top');
+          smoother.scrollTo(targetEl, true, 'top 100px');
         } else {
           targetEl.scrollIntoView({ behavior: 'smooth' });
         }
@@ -46,6 +46,7 @@ export default function Footer() {
             Marketplace
           </h4>
           <ul className="space-y-2.5 text-sm text-[#EEEEEE]/80 font-medium list-none p-0">
+            <li><a href="#demo" onClick={(e) => handleNavClick(e, '#demo')} className="hover:text-[#00ADB5] transition-colors no-underline">Product Demo</a></li>
             <li><a href="#how-it-works" onClick={(e) => handleNavClick(e, '#how-it-works')} className="hover:text-[#00ADB5] transition-colors no-underline">How It Works</a></li>
             <li><a href="#choose-role" onClick={(e) => handleNavClick(e, '#choose-role')} className="hover:text-[#00ADB5] transition-colors no-underline">Marketplace Roles</a></li>
             <li><a href="#horizontal-scroll" onClick={(e) => handleNavClick(e, '#horizontal-scroll')} className="hover:text-[#00ADB5] transition-colors no-underline">Area Intelligence</a></li>

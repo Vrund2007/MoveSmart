@@ -18,6 +18,7 @@ import CompanyDashboard from './pages/CompanyDashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminReviewQueue from './pages/AdminReviewQueue';
 import LoadingSpinner from './components/common/LoadingSpinner';
+import ServerStatusToast from './components/common/ServerStatusToast';
 
 // Phase 13 — Shared Platform Pages
 import Notifications from './pages/Notifications';
@@ -133,6 +134,7 @@ function App() {
       <AuthProvider>
         <ProfileProvider>
           <MaintenanceNoticeGuard>
+          <ServerStatusToast />
           <Routes>
             {/* Public Routes */}
             <Route path="/" element={<Landing />} />

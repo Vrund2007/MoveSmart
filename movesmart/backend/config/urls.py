@@ -5,6 +5,7 @@ from apps.common.views import HealthCheckView
 
 urlpatterns = [
     path('api/health', HealthCheckView.as_view(), name='health-check'),
+    path('api/health/', HealthCheckView.as_view(), name='health-check-slash'),
     path('api/auth/', include('apps.accounts.urls')),
     path('api/', include('apps.accounts.urls')),
     path('api/', include('apps.listings.urls')),

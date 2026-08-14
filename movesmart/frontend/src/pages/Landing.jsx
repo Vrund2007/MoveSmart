@@ -7,8 +7,10 @@ import { ScrollSmoother } from 'gsap/ScrollSmoother';
 
 import PageLoader from '../components/ui/PageLoader';
 import CustomCursor from '../components/ui/CustomCursor';
+import ServerStatusToast from '../components/common/ServerStatusToast';
 import CityModel from '../components/hero/CityModel';
 import CityHero, { HeroNavbar } from '../components/hero/CityHero';
+import DemoSection from '../components/sections/DemoSection';
 import HowItWorks from '../components/sections/HowItWorks';
 import ChooseRole from '../components/sections/ChooseRole';
 import HorizontalScrollytelling from '../components/sections/HorizontalScrollytelling';
@@ -61,6 +63,7 @@ export default function Landing() {
       {/* Fixed UI Overlays */}
       <PageLoader />
       <CustomCursor />
+      <ServerStatusToast />
       <HeroNavbar scrolled={scrolled} />
 
       {/* Inertia Smooth Scroll Content */}
@@ -70,6 +73,7 @@ export default function Landing() {
             <div id="hero-section">
               <CityHero modelLoaded={modelLoaded} />
             </div>
+            <DemoSection />
             <HowItWorks />
             <ChooseRole />
             <HorizontalScrollytelling />

@@ -492,7 +492,7 @@ export default function CompanyDashboard() {
             </button>
             <div>
               <h1 className="text-lg sm:text-xl font-black text-[#222831] tracking-tight capitalize">
-                {activeTab.replace('-', ' ')}
+                {(activeTab || '').replace(/-/g, ' ')}
               </h1>
               <p className="text-[11px] text-[#393E46] font-medium hidden sm:block">
                 Corporate Relocation Batch Management Hub
@@ -555,7 +555,7 @@ export default function CompanyDashboard() {
                               <td className="py-3.5 px-4 font-semibold text-[#00ADB5]">{e.preferred_locality}</td>
                               <td className="py-3.5 px-4">
                                 <span className="text-[9px] font-black px-2.5 py-0.5 rounded-full bg-teal-50 text-teal-700 border border-teal-200 uppercase">
-                                  {e.relocation_stage.replace('_', ' ')}
+                                  {(e.relocation_stage || e.relocation_status || 'initiated').replace(/_/g, ' ')}
                                 </span>
                               </td>
                             </tr>
@@ -668,7 +668,7 @@ export default function CompanyDashboard() {
                           </td>
                           <td className="py-4 px-4">
                             <span className="text-[9px] font-black px-2.5 py-0.5 rounded-full bg-teal-50 text-teal-700 border border-teal-200 uppercase tracking-wider">
-                              {e.relocation_stage.replace('_', ' ')}
+                              {(e.relocation_stage || e.relocation_status || 'initiated').replace(/_/g, ' ')}
                             </span>
                           </td>
                           <td className="py-4 px-4 text-right space-x-2">

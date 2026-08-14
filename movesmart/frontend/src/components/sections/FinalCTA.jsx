@@ -22,26 +22,20 @@ export default function FinalCTA() {
   useGSAP(() => {
     if (prefersReducedMotion || !headlineRef.current) return;
 
-    try {
-      const split = new SplitText(headlineRef.current, {
-        type: 'chars',
-        charsClass: 'inline-block opacity-0 translate-y-4',
-      });
-
-      gsap.to(split.chars, {
+    gsap.fromTo(
+      headlineRef.current,
+      { y: 30, opacity: 0 },
+      {
         opacity: 1,
         y: 0,
-        duration: 0.5,
-        stagger: 0.02,
-        ease: 'back.out(1.5)',
+        duration: 0.8,
+        ease: 'power3.out',
         scrollTrigger: {
           trigger: sectionRef.current,
           start: 'top 75%',
         },
-      });
-    } catch (e) {
-      gsap.from(headlineRef.current, { opacity: 0, y: 20, duration: 0.8 });
-    }
+      }
+    );
   }, { scope: sectionRef });
 
   const handleMouseMove = (e) => {

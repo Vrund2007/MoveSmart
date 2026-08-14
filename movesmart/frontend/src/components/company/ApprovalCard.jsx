@@ -44,7 +44,7 @@ export default function ApprovalCard({ approval, onProcessApproval }) {
       <div className="flex justify-between items-start">
         <div>
           <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#00ADB5] block">
-            {approval.approval_type?.replace('_', ' ')}
+            {(approval.approval_type || '').replace(/_/g, ' ')}
           </span>
           <h4 className="font-bold text-sm text-[#222831]">Employee ID: {approval.employee_id}</h4>
         </div>

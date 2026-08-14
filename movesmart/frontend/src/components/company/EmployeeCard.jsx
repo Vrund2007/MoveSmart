@@ -25,7 +25,7 @@ export default function EmployeeCard({ employee, onEdit, onDelete, onAssignBroke
             </div>
 
             <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded border uppercase ${STATUS_BADGES[employee.relocation_status] || STATUS_BADGES.initiated}`}>
-              {employee.relocation_status?.replace('_', ' ')}
+              {(employee.relocation_status || employee.relocation_stage || 'initiated').replace(/_/g, ' ')}
             </span>
           </div>
 

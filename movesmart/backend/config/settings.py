@@ -15,8 +15,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # ─── Core ─────────────────────────────────────────────────────────────────────
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'change-me-in-env')
 DEBUG = os.environ.get('DJANGO_DEBUG', 'True') == 'True'
-ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1,testserver').split(',')
-if 'testserver' not in ALLOWED_HOSTS:
+raw_hosts = os.environ.get('ALLOWED_HOSTS', '*')
+ALLOWED_HOSTS = [h.strip() for h in raw_hosts.split(',') if h.strip()] if raw_hosts and raw_hosts != '*' else ['*']
+if 'testserver' not in ALLOWED_HOSTS and '*' not in ALLOWED_HOSTS:
     ALLOWED_HOSTS.append('testserver')
 
 # ─── Installed Apps ───────────────────────────────────────────────────────────
@@ -52,6 +53,7 @@ INSTALLED_APPS = [
 # ─── Middleware ────────────────────────────────────────────────────────────────
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'corsheaders.middleware.CorsMiddleware',
 
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -89,6 +91,8 @@ DATABASE_NAME = os.environ.get('DATABASE_NAME', 'movesmart_db')
 
 # ─── Static files ─────────────────────────────────────────────────────────────
 STATIC_URL = '/static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # ─── DRF ──────────────────────────────────────────────────────────────────────
 REST_FRAMEWORK = {
@@ -117,24 +121,24 @@ CORS_ALLOW_CREDENTIALS = True
 
 # ─── External APIs ────────────────────────────────────────────────────────────
 GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '')
-GEOAPIFY_API_KEY = os.environ.get('GEOAPIFY_API_KEY', '435363f7628a447084da302c1cb4d029')
+GEOAPIFY_API_KEY = os.environ.get('GEOAPIFY_API_KEY', '')
 MAPS_API_KEY = GEOAPIFY_API_KEY
 
 # ─── Cloudinary Credentials ───────────────────────────────────────────────────
-CLOUDINARY_CLOUD_NAME = os.environ.get('CLOUDINARY_CLOUD_NAME', 'dol7leoig')
-CLOUDINARY_API_KEY = os.environ.get('CLOUDINARY_API_KEY', '848921638563788')
-CLOUDINARY_API_SECRET = os.environ.get('CLOUDINARY_API_SECRET', 'C27rnSu5AOZaif3_sl-DA4e5cZI')
+CLOUDINARY_CLOUD_NAME = os.environ.get('CLOUDINARY_CLOUD_NAME', '')
+CLOUDINARY_API_KEY = os.environ.get('CLOUDINARY_API_KEY', '')
+CLOUDINARY_API_SECRET = os.environ.get('CLOUDINARY_API_SECRET', '')
 
 # ─── Razorpay Credentials ─────────────────────────────────────────────────────
-RAZORPAY_KEY_ID = os.environ.get('RAZORPAY_KEY_ID', 'rzp_test_TLywXESF3GfgEJ')
-RAZORPAY_KEY_SECRET = os.environ.get('RAZORPAY_KEY_SECRET', 'Z416RuavJ486cEYHNVjkqJUi')
+RAZORPAY_KEY_ID = os.environ.get('RAZORPAY_KEY_ID', '')
+RAZORPAY_KEY_SECRET = os.environ.get('RAZORPAY_KEY_SECRET', '')
 
 # ─── Media Storage ─────────────────────────────────────────────────────────────
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
 # ─── Groq API Configuration ──────────────────────────────────────────────────
-GROQ_API_KEY = os.environ.get('GROQ_API_KEY', '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')
+GROQ_API_KEY = os.environ.get('GROQ_API_KEY', '')
 
 # ─── Default auto field ───────────────────────────────────────────────────────
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'

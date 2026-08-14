@@ -14,7 +14,7 @@ export default function LocalityCard({ item, rank = 1, onSelectLocality }) {
     if (onSelectLocality) {
       onSelectLocality(item.locality);
     } else {
-      navigate(`/dashboard?locality=${encodeURIComponent(item.locality)}`);
+      navigate(`/dashboard?tab=browse&locality=${encodeURIComponent(item.locality)}&page=1`);
     }
   };
 

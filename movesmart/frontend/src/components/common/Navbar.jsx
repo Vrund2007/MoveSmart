@@ -51,6 +51,29 @@ const Navbar = () => {
               <Link to="/login" className="text-sm font-medium hover:text-primary transition-colors">
                 Login
               </Link>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  if (window.location.pathname === '/') {
+                    const targetEl = document.querySelector('#demo');
+                    if (targetEl) {
+                      const smoother = window.gsapSmoother;
+                      if (smoother && typeof smoother.scrollTo === 'function') {
+                        smoother.scrollTo(targetEl, true, 'top 100px');
+                      } else {
+                        targetEl.scrollIntoView({ behavior: 'smooth' });
+                      }
+                    }
+                    window.dispatchEvent(new CustomEvent('play-demo-video'));
+                  } else {
+                    navigate('/#demo');
+                  }
+                }}
+                className="border-primary/40 text-primary hover:bg-primary/10"
+              >
+                Show Demo
+              </Button>
               <Link to="/login">
                 <Button variant="primary" size="sm">
                   Get Started

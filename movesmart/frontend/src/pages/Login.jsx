@@ -705,9 +705,7 @@ export default function Login() {
               {[
                 { label: 'Customer 1', em: 'customer@gmail.com', pw: 'Customer@123' },
                 { label: 'Customer 2', em: 'customer2@gmail.com', pw: 'Customer@123' },
-                { label: 'Admin', em: 'admin@movesmart.com', pw: 'Admin@123' },
                 { label: 'Landlord', em: 'landlord@gmail.com', pw: 'Landlord@123' },
-                { label: 'Company HR', em: 'companyhr@gmail.com', pw: 'Vrund@2007' },
               ].map(({ label, em, pw }) => (
                 <div key={label} className="ms-demo-row" onClick={() => fillDemo(em, pw)}>
                   <span style={{ fontWeight: 800, color: '#222831', minWidth: 85, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>{label}</span>
