@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://movesmart-backend.onrender.com/api/:path*"
+      "destination": "https://movesmart-cf0s.onrender.com/api/:path*"
     },
     {
       "source": "/(.*)",
