@@ -1,7 +1,11 @@
 // src/components/common/InteractiveLocationPicker.jsx — Geoapify + Leaflet Interactive Location Picker (Ahmedabad Regional Filter)
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 
-const GEOAPIFY_API_KEY = '435363f7628a447084da302c1cb4d029';
+const GEOAPIFY_API_KEY = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_GEOAPIFY_API_KEY)
+  ? import.meta.env.VITE_GEOAPIFY_API_KEY
+  : (typeof process !== 'undefined' && process.env && process.env.REACT_APP_GEOAPIFY_API_KEY)
+  ? process.env.REACT_APP_GEOAPIFY_API_KEY
+  : '';
 const AHMEDABAD_CENTER = { lat: 23.0225, lng: 72.5714 };
 
 // Ahmedabad Commercial Tech Hubs & Major Landmarks Knowledge Base

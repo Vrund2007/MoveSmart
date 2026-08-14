@@ -6,6 +6,7 @@ import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import Input from '../components/common/Input';
 import LoadingSpinner from '../components/common/LoadingSpinner';
+import SearchableSelect from '../components/common/SearchableSelect';
 
 export default function VisitScheduler() {
   const [visits, setVisits] = useState([]);
@@ -133,19 +134,21 @@ export default function VisitScheduler() {
             <h3 className="text-lg font-bold text-text-primary border-b border-border pb-2">Schedule Property Visit</h3>
             <div>
               <label className="text-xs font-semibold text-text-primary mb-1 block">Select Verified Property</label>
-              <select
+              <SearchableSelect
                 required
+                placeholder="Search property by title, locality, or price..."
                 value={form.listing_id}
-                onChange={(e) => setForm({ ...form, listing_id: e.target.value })}
-                className="w-full bg-surface border border-border rounded p-2.5 text-xs text-text-primary"
-              >
-                <option value="">Select property...</option>
-                {approvedListings
+                onChange={(val) => setForm({ ...form, listing_id: val })}
+                options={approvedListings
                   .filter((p) => p.owner_id || p.submitted_by_broker_id || p.source === 'landlord_portal')
-                  .map((p) => (
-                    <option key={p._id} value={p._id}>{p.title} ({p.locality}) — ₹{p.price?.toLocaleString()}</option>
-                  ))}
-              </select>
+                  .map((p) => ({
+                    value: p._id,
+                    title: p.title,
+                    locality: p.locality,
+                    price: p.price,
+                    label: `${p.title} (${p.locality})`
+                  }))}
+              />
               <p className="text-[10px] text-text-secondary mt-1">
                 ℹ️ Only properties with registered platform Landlords / Brokers can be scheduled online.
               </p>

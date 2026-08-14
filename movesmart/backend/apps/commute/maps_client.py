@@ -191,7 +191,7 @@ def _resolve_coords(loc_input: Any) -> list:
             return coords
 
     # 4. Ultra-fast non-blocking Geoapify lookup (capped at 0.8s timeout to avoid server lag)
-    api_key = getattr(settings, 'GEOAPIFY_API_KEY', '435363f7628a447084da302c1cb4d029')
+    api_key = getattr(settings, 'GEOAPIFY_API_KEY', '')
     if api_key and len(raw_str) > 2:
         try:
             bbox = '72.30,22.80,72.95,23.35'
@@ -237,7 +237,7 @@ def get_batch_commute_estimates(locality_names: list, destination: Any, mode: st
     Batch call to Geoapify Route Matrix — calculates multi-point commute distances and times.
     Uses ultra-fast timeout and instant dynamic calculation for zero server latency.
     """
-    api_key = getattr(settings, 'GEOAPIFY_API_KEY', '435363f7628a447084da302c1cb4d029')
+    api_key = getattr(settings, 'GEOAPIFY_API_KEY', '')
     geo_mode = _map_mode(mode)
     dest_key = str(destination.get('name') if isinstance(destination, dict) else destination).lower().split(',')[0].strip()
     cache_key = (dest_key, geo_mode)
@@ -307,7 +307,7 @@ def get_commute_estimate(origin: Any, destination: Any, mode: str = "driving") -
     orig_coords = _resolve_coords(origin)
     dest_coords = _resolve_coords(destination)
 
-    api_key = getattr(settings, 'GEOAPIFY_API_KEY', '435363f7628a447084da302c1cb4d029')
+    api_key = getattr(settings, 'GEOAPIFY_API_KEY', '')
     geo_mode = _map_mode(mode)
     commute_result = None
 

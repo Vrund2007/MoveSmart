@@ -302,10 +302,11 @@ export default function Dashboard() {
 
   useEffect(() => {
     const initialF = getInitialFiltersFromUrl();
+    setCurrentFilters(initialF);
     fetchApprovedListings(initialF, urlPage, false);
     fetchSavedListings();
     fetchUpcomingVisits();
-  }, [urlPage]);
+  }, [urlPage, searchParams.toString(), activeTab]);
 
   useEffect(() => {
     if ((activeTab === 'recommendations' || activeTab === 'hub') && recommendations.length === 0) {
@@ -697,7 +698,13 @@ export default function Dashboard() {
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {recommendations.slice(0, 3).map((item, idx) => (
-                      <LocalityCard key={item.locality} item={item} rank={idx + 1} isTop={idx === 0} />
+                      <LocalityCard
+                        key={item.locality}
+                        item={item}
+                        rank={idx + 1}
+                        isTop={idx === 0}
+                        onSelectLocality={handleSelectLocalityFromCard}
+                      />
                     ))}
                   </div>
                 </div>

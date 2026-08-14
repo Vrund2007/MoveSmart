@@ -56,7 +56,7 @@ function CityScene({ onLoaded }) {
         trigger: '#smooth-content',
         start: 'top top',
         end: 'bottom bottom',
-        scrub: 0.5,
+        scrub: 1.0,
       },
     });
 
@@ -66,35 +66,41 @@ function CityScene({ onLoaded }) {
     gsap.set(groupRef.current.position, { x: 0, y: 0, z: 0 });
     gsap.set(groupRef.current.rotation, { y: 0, x: 0, z: 0 });
 
-    // 1. Hero -> How It Works (Fly low-angle close-up into street level buildings)
-    tl.to(camera.position, { x: 4.5, y: 1.8, z: -6.2, ease: 'power1.inOut' }, 0)
-      .to(target, { x: 1.0, y: 0.5, z: -1.0, ease: 'power1.inOut' }, 0)
-      .to(groupRef.current.position, { x: -2.5, y: -0.5, z: 3.0, ease: 'power1.inOut' }, 0)
-      .to(groupRef.current.rotation, { y: 1.2, ease: 'power1.inOut' }, 0)
+    // 1. Hero -> Demo Section (Cinematic wide angle lowering gently, subtle background city rotation)
+    tl.to(camera.position, { x: -4.8, y: 4.5, z: -17.5, ease: 'sine.inOut' }, 0)
+      .to(target, { x: 2.6, y: 1.1, z: -0.1, ease: 'sine.inOut' }, 0)
+      .to(groupRef.current.position, { x: -1.0, y: -0.2, z: 0.8, ease: 'sine.inOut' }, 0)
+      .to(groupRef.current.rotation, { y: 0.5, ease: 'sine.inOut' }, 0)
 
-    // 2. How It Works -> Choose Role (Pan around side of commercial towers)
-      .to(camera.position, { x: 14.0, y: 4.2, z: -8.5, ease: 'power1.inOut' }, 1)
-      .to(target, { x: 4.0, y: 1.5, z: 2.0, ease: 'power1.inOut' }, 1)
-      .to(groupRef.current.position, { x: 3.0, y: 0.2, z: -1.5, ease: 'power1.inOut' }, 1)
-      .to(groupRef.current.rotation, { y: 2.4, ease: 'power1.inOut' }, 1)
+    // 2. Demo -> How It Works (Fly into street level buildings)
+      .to(camera.position, { x: 3.5, y: 2.2, z: -7.5, ease: 'sine.inOut' }, 1)
+      .to(target, { x: 1.0, y: 0.6, z: -0.8, ease: 'sine.inOut' }, 1)
+      .to(groupRef.current.position, { x: -2.0, y: -0.4, z: 2.2, ease: 'sine.inOut' }, 1)
+      .to(groupRef.current.rotation, { y: 1.2, ease: 'sine.inOut' }, 1)
 
-    // 3. Choose Role -> Horizontal Sideways Scroll (Top-down 90-degree satellite view)
-      .to(camera.position, { x: 0.0, y: 22.0, z: -0.1, ease: 'power1.inOut' }, 2)
-      .to(target, { x: 0.0, y: 0.0, z: 0.0, ease: 'power1.inOut' }, 2)
-      .to(groupRef.current.position, { x: 0, y: 0, z: 0, ease: 'power1.inOut' }, 2)
-      .to(groupRef.current.rotation, { y: 3.6, ease: 'power1.inOut' }, 2)
+    // 3. How It Works -> Choose Role (Pan around commercial towers)
+      .to(camera.position, { x: 11.0, y: 3.8, z: -8.8, ease: 'sine.inOut' }, 2)
+      .to(target, { x: 3.5, y: 1.3, z: 1.8, ease: 'sine.inOut' }, 2)
+      .to(groupRef.current.position, { x: 2.2, y: 0.1, z: -1.2, ease: 'sine.inOut' }, 2)
+      .to(groupRef.current.rotation, { y: 2.1, ease: 'sine.inOut' }, 2)
 
-    // 4. Horizontal Scroll -> Verified Listings (Zoom close to residential balcony level)
-      .to(camera.position, { x: -8.5, y: 2.2, z: -7.0, ease: 'power1.inOut' }, 3)
-      .to(target, { x: -1.2, y: 1.4, z: -0.8, ease: 'power1.inOut' }, 3)
-      .to(groupRef.current.position, { x: -2.0, y: -0.3, z: 1.5, ease: 'power1.inOut' }, 3)
-      .to(groupRef.current.rotation, { y: 4.8, ease: 'power1.inOut' }, 3)
+    // 4. Choose Role -> Horizontal Sideways Scroll (Smooth elevated vista)
+      .to(camera.position, { x: 0.0, y: 15.0, z: -4.0, ease: 'sine.inOut' }, 3)
+      .to(target, { x: 0.0, y: 0.5, z: 0.0, ease: 'sine.inOut' }, 3)
+      .to(groupRef.current.position, { x: 0, y: 0, z: 0, ease: 'sine.inOut' }, 3)
+      .to(groupRef.current.rotation, { y: 3.14, ease: 'sine.inOut' }, 3)
 
-    // 5. Verified Listings -> Statistics & Final CTA (Dramatic wide-angle panorama sweep)
-      .to(camera.position, { x: -12.0, y: 11.0, z: -28.0, ease: 'power1.inOut' }, 4)
-      .to(target, { x: 3.0, y: 1.0, z: 0.0, ease: 'power1.inOut' }, 4)
-      .to(groupRef.current.position, { x: 0, y: 0, z: 0, ease: 'power1.inOut' }, 4)
-      .to(groupRef.current.rotation, { y: 6.5, ease: 'power1.inOut' }, 4);
+    // 5. Horizontal Scroll -> Verified Listings (Zoom closer to residential level)
+      .to(camera.position, { x: -7.0, y: 3.0, z: -7.5, ease: 'sine.inOut' }, 4)
+      .to(target, { x: -1.0, y: 1.2, z: -0.5, ease: 'sine.inOut' }, 4)
+      .to(groupRef.current.position, { x: -1.5, y: -0.2, z: 1.2, ease: 'sine.inOut' }, 4)
+      .to(groupRef.current.rotation, { y: 4.2, ease: 'sine.inOut' }, 4)
+
+    // 6. Verified Listings -> Statistics & Final CTA (Dramatic wide-angle panorama sweep)
+      .to(camera.position, { x: -10.5, y: 8.5, z: -22.0, ease: 'sine.inOut' }, 5)
+      .to(target, { x: 2.5, y: 1.0, z: 0.0, ease: 'sine.inOut' }, 5)
+      .to(groupRef.current.position, { x: 0, y: 0, z: 0, ease: 'sine.inOut' }, 5)
+      .to(groupRef.current.rotation, { y: 5.5, ease: 'sine.inOut' }, 5);
 
     return () => tl.kill();
   }, { dependencies: [gltf] });

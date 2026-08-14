@@ -20,7 +20,7 @@ export async function triggerRazorpayUnlock({ feature, user, onSuccess, onError 
 
     // 2. Open Razorpay Modal
     const options = {
-      key: key_id || 'rzp_test_TLywXESF3GfgEJ',
+      key: key_id || '',
       amount: amount || 3000,
       currency: currency || 'INR',
       name: 'MoveSmart Relocation',

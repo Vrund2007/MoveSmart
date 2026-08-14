@@ -7,7 +7,7 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { SplitText } from 'gsap/SplitText';
 import {
   MapPin, Calculator, ShieldCheck,
-  Navigation, Star, ArrowRight
+  Navigation, Star, ArrowRight, Play
 } from 'lucide-react';
 
 gsap.registerPlugin(ScrollTrigger, SplitText);
@@ -53,6 +53,7 @@ export function HeroNavbar({ scrolled }) {
 
   const navItems = [
     { label: 'Home', href: '/' },
+    { label: 'Demo', href: '#demo' },
     { label: 'How it Works', href: '#how-it-works' },
     { label: 'Roles', href: '#choose-role' },
     { label: 'Districts', href: '#horizontal-scroll' },
@@ -81,7 +82,7 @@ export function HeroNavbar({ scrolled }) {
       if (targetEl) {
         const smoother = window.gsapSmoother;
         if (smoother && typeof smoother.scrollTo === 'function') {
-          smoother.scrollTo(targetEl, true, 'top top');
+          smoother.scrollTo(targetEl, true, 'top 100px');
         } else {
           targetEl.scrollIntoView({ behavior: 'smooth' });
         }
@@ -141,6 +142,18 @@ export function HeroNavbar({ scrolled }) {
 
         {/* CTA Button & Mobile Hamburger */}
         <div className="flex items-center gap-2 sm:gap-3">
+          <button
+            type="button"
+            onClick={(e) => {
+              handleNavClick(e, { label: 'Demo', href: '#demo' });
+              window.dispatchEvent(new CustomEvent('play-demo-video'));
+            }}
+            className="interactive-hover relative inline-flex items-center justify-center gap-1.5 px-3.5 sm:px-5 py-2 sm:py-2.5 text-xs sm:text-sm font-bold text-[#008C93] bg-[#00ADB5]/10 hover:bg-[#00ADB5]/20 border border-[#00ADB5]/30 transition-all duration-300 rounded-full shadow-xs hover:shadow-md hover:scale-[1.03] active:scale-[0.98] cursor-pointer"
+          >
+            <Play size={14} className="fill-current text-[#00ADB5]" />
+            <span>Show Demo</span>
+          </button>
+
           <a
             href="/login"
             className="interactive-hover relative inline-flex items-center justify-center px-4 sm:px-6 py-2 sm:py-2.5 text-xs sm:text-sm font-bold text-white transition-all duration-300 rounded-full bg-gradient-to-r from-[#00ADB5] to-[#008C93] shadow-md shadow-[#00ADB5]/25 hover:shadow-lg hover:shadow-[#00ADB5]/40 hover:scale-[1.03] active:scale-[0.98]"
@@ -231,34 +244,21 @@ export default function CityHero({ modelLoaded = true }) {
   const headlineRef = useRef(null);
   const ctaBtnRef = useRef(null);
 
-  // SplitText Line Reveal Setup
+  // Headline Reveal Animation
   useGSAP(() => {
     if (prefersReducedMotion || !headlineRef.current) return;
 
-    try {
-      const split = new SplitText(headlineRef.current, {
-        type: 'lines',
-        linesClass: 'split-line-wrap',
-      });
-      split.lines.forEach((line) => {
-        line.innerHTML = `<span class="split-line-child">${line.innerHTML}</span>`;
-      });
-      const children = headlineRef.current.querySelectorAll('.split-line-child');
-      gsap.fromTo(
-        children,
-        { yPercent: 110, opacity: 0 },
-        {
-          yPercent: 0,
-          opacity: 1,
-          duration: 0.8,
-          stagger: 0.12,
-          ease: 'power3.out',
-          delay: 0.15,
-        }
-      );
-    } catch (err) {
-      gsap.from(headlineRef.current, { opacity: 0, y: 20, duration: 0.8 });
-    }
+    gsap.fromTo(
+      headlineRef.current,
+      { y: 30, opacity: 0 },
+      {
+        y: 0,
+        opacity: 1,
+        duration: 0.8,
+        ease: 'power3.out',
+        delay: 0.15,
+      }
+    );
   }, { scope: heroRef });
 
   // Magnetic Button Mouse Interaction
@@ -320,14 +320,34 @@ export default function CityHero({ modelLoaded = true }) {
             Your AI-powered city companion for finding the perfect home, smartest commute, and the best life in a new city.
           </p>
 
-          {/* Magnetic CTA Button */}
-          <div className="mb-10 flex items-center gap-4">
+          {/* Magnetic CTA Button & Show Demo */}
+          <div className="mb-10 flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                const targetEl = document.querySelector('#demo');
+                if (targetEl) {
+                  const smoother = window.gsapSmoother;
+                  if (smoother && typeof smoother.scrollTo === 'function') {
+                    smoother.scrollTo(targetEl, true, 'top 100px');
+                  } else {
+                    targetEl.scrollIntoView({ behavior: 'smooth' });
+                  }
+                  window.dispatchEvent(new CustomEvent('play-demo-video'));
+                }
+              }}
+              className="interactive-hover inline-flex items-center gap-2 bg-[#00ADB5]/10 hover:bg-[#00ADB5]/20 text-[#008C93] font-bold rounded-xl border border-[#00ADB5]/30 shadow-sm hover:shadow-md px-5 py-4 text-base transition-all duration-200 cursor-pointer"
+            >
+              <Play size={18} className="fill-current text-[#00ADB5]" />
+              <span>Show Demo</span>
+            </button>
+
             <a
               ref={ctaBtnRef}
               href="/login"
               onMouseMove={handleCtaMouseMove}
               onMouseLeave={handleCtaMouseLeave}
-              className="interactive-hover magnetic-btn-glow inline-flex items-center gap-2.5 bg-[#00ADB5] text-white font-bold rounded-xl shadow-lg shadow-[#00ADB5]/25 hover:shadow-xl hover:shadow-[#00ADB5]/35 hover:bg-[#00969d] px-8 py-4 text-base transition-all duration-200 no-underline"
+              className="interactive-hover magnetic-btn-glow inline-flex items-center gap-2.5 bg-[#00ADB5] text-white font-bold rounded-xl shadow-lg shadow-[#00ADB5]/25 hover:shadow-xl hover:shadow-[#00ADB5]/35 hover:bg-[#00969d] px-7 py-4 text-base transition-all duration-200 no-underline"
             >
               <span>Start Planning</span>
               <ArrowRight size={18} strokeWidth={2.5} />
@@ -373,12 +393,34 @@ export default function CityHero({ modelLoaded = true }) {
           <p className="text-[#393E46] text-sm sm:text-base leading-relaxed mb-6 font-medium">
             Your AI-powered city companion for finding the perfect home, smartest commute, and the best life.
           </p>
-          <a
-            href="/login"
-            className="interactive-hover block text-center bg-[#00ADB5] text-white font-bold py-3.5 px-6 rounded-xl mb-6 shadow-md shadow-[#00ADB5]/25 text-sm sm:text-base no-underline active:scale-95 transition-transform"
-          >
-            Start Planning &rarr;
-          </a>
+          <div className="flex flex-col sm:flex-row gap-2.5 mb-6">
+            <button
+              type="button"
+              onClick={() => {
+                const targetEl = document.querySelector('#demo');
+                if (targetEl) {
+                  const smoother = window.gsapSmoother;
+                  if (smoother && typeof smoother.scrollTo === 'function') {
+                    smoother.scrollTo(targetEl, true, 'top 100px');
+                  } else {
+                    targetEl.scrollIntoView({ behavior: 'smooth' });
+                  }
+                  window.dispatchEvent(new CustomEvent('play-demo-video'));
+                }
+              }}
+              className="interactive-hover flex items-center justify-center gap-1.5 bg-[#00ADB5]/10 text-[#008C93] font-bold py-3 px-5 rounded-xl shadow-xs text-xs sm:text-sm border border-[#00ADB5]/30 active:scale-95 transition-transform cursor-pointer"
+            >
+              <Play size={14} className="fill-current text-[#00ADB5]" />
+              <span>Show Demo</span>
+            </button>
+
+            <a
+              href="/login"
+              className="interactive-hover block text-center bg-[#00ADB5] text-white font-bold py-3 px-6 rounded-xl shadow-md shadow-[#00ADB5]/25 text-xs sm:text-sm no-underline active:scale-95 transition-transform flex-1"
+            >
+              Start Planning &rarr;
+            </a>
+          </div>
 
           <div className="grid grid-cols-2 gap-2.5">
             {FEATURES.map((feat) => {

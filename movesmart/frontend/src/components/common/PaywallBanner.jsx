@@ -72,7 +72,7 @@ export default function PaywallBanner({ feature, title, description, user, onUnl
       </button>
 
       <p className="text-[10px] text-gray-400">
-        🔒 Test Mode Active • Key ID: rzp_test_TLywXESF3GfgEJ
+        🔒 Test Mode Active
       </p>
     </Card>
   );

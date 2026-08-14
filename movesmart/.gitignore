@@ -53,7 +53,19 @@ yarn-error.log*
 .DS_Store
 Thumbs.db
 
+# Django Static files & Media outputs
+staticfiles/
+backend/staticfiles/
+media/
+backend/media/*
+!backend/media/.gitkeep
+
+# Local Scratch & Stray files
+scratch_test_groq.py
+tash drop
+
 # ML Artifacts (Local temporary outputs)
 *.pkl
 *.joblib
 !movesmart/backend/ml/*/artifacts/.gitkeep
+

@@ -2,7 +2,7 @@ import os
 import urllib.request
 import json
 
-api_key = "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"
+api_key = os.environ.get("GROQ_API_KEY", "")
 url = "https://api.groq.com/openai/v1/chat/completions"
 headers = {
     'Content-Type': 'application/json',
